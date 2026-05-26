@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { BookOpen, MessageCircle, Users, Tv, User, LayoutDashboard, LogOut } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/lib/AuthContext';
+import { supabase } from '@/lib/supabase';
 import ThemeToggle from './ThemeToggle';
 import AnimatedBackground from './AnimatedBackground';
 import NotificationBell from '@/components/notifications/NotificationBell';
@@ -29,6 +30,33 @@ export default function Layout() {
   const location = useLocation();
   const { user, logout } = useAuth();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+
+  useEffect(() => {
+    const email = user?.email;
+    if (!email) return;
+
+    const setOnline = (val) =>
+      supabase.from('users').update({ is_online: val }).eq('email', email);
+
+    setOnline(true);
+    const interval = setInterval(() => setOnline(true), 30_000);
+
+    const handleVisibility = () => {
+      if (document.hidden) setOnline(false);
+      else setOnline(true);
+    };
+    const handleUnload = () => setOnline(false);
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('beforeunload', handleUnload);
+
+    return () => {
+      clearInterval(interval);
+      setOnline(false);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('beforeunload', handleUnload);
+    };
+  }, [user?.email]);
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">

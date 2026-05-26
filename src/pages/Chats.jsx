@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
@@ -85,6 +85,57 @@ export default function Chats() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['chat-groups'] }),
   });
 
+  // Unread DM tracking
+  const [lastRead, setLastRead] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('dm_last_read') || '{}'); }
+    catch { return {}; }
+  });
+
+  const markRead = (convId) => {
+    setLastRead(prev => {
+      const next = { ...prev, [convId]: new Date().toISOString() };
+      localStorage.setItem('dm_last_read', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const { data: lastIncomingMessages = [] } = useQuery({
+    queryKey: ['dm-last-incoming', user?.email],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('direct_messages')
+        .select('conversation_id, created_by, created_date')
+        .ilike('conversation_id', `%${user.email}%`)
+        .neq('created_by', user.email)
+        .order('created_date', { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      // Keep only the most recent message per conversation
+      const byConv = {};
+      for (const msg of data || []) {
+        if (!byConv[msg.conversation_id]) byConv[msg.conversation_id] = msg;
+      }
+      return Object.values(byConv);
+    },
+    enabled: !!user?.email,
+    refetchInterval: 8_000,
+  });
+
+  // Mark current DM as read whenever it becomes active or new messages arrive
+  useEffect(() => {
+    if (!selectedConv || selectedConv.type !== 'dm' || !user?.email) return;
+    const convId = [user.email, selectedConv.data.email].sort().join('_');
+    markRead(convId);
+  }, [selectedConv?.data?.email, lastIncomingMessages, user?.email]);
+
+  const unreadMap = Object.fromEntries(
+    lastIncomingMessages.map(msg => {
+      const readAt = lastRead[msg.conversation_id];
+      const isUnread = !readAt || new Date(msg.created_date) > new Date(readAt);
+      return [msg.conversation_id, isUnread];
+    })
+  );
+
   const isMember = (group) => (group.members || []).includes(user?.email);
 
   const handleSelectGroup = (group) => {
@@ -93,6 +144,8 @@ export default function Chats() {
   };
 
   const handleSelectDM = (u) => {
+    const convId = [user?.email, u.email].sort().join('_');
+    markRead(convId);
     setSelectedConv({ type: 'dm', data: u });
     setShowNewChat(false);
   };
@@ -117,6 +170,7 @@ export default function Chats() {
             onNewChat={() => setShowNewChat(true)}
             isMember={isMember}
             onViewProfile={setViewingProfile}
+            unreadMap={unreadMap}
           />
         </div>
 

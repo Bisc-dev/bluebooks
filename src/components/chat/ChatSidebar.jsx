@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Users, Lock, MessageCircle, Search, Plus, X, ChevronRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
-export default function ChatSidebar({ groups, users, user, selectedConv, onSelectGroup, onSelectDM, onNewGroup, onNewChat, isMember, onViewProfile }) {
+export default function ChatSidebar({ groups, users, user, selectedConv, onSelectGroup, onSelectDM, onNewGroup, onNewChat, isMember, onViewProfile, unreadMap = {} }) {
   const [tab, setTab] = useState('dms');
   const [search, setSearch] = useState('');
   const [showMembers, setShowMembers] = useState(false);
@@ -154,6 +154,8 @@ export default function ChatSidebar({ groups, users, user, selectedConv, onSelec
             </p>
           ) : dmPartners.map(u => {
             const active = selectedConv?.type === 'dm' && selectedConv?.data?.email === u.email;
+            const convId = [user?.email, u.email].sort().join('_');
+            const hasUnread = !active && !!unreadMap[convId];
             return (
               <motion.button
                 key={u.id}
@@ -161,22 +163,32 @@ export default function ChatSidebar({ groups, users, user, selectedConv, onSelec
                 onClick={() => onSelectDM(u)}
                 className={`w-full p-2.5 flex items-center gap-2.5 hover:bg-white/5 transition-colors text-left ${active ? 'bg-primary/15 border-r-2 border-primary' : ''}`}
               >
-                <div
-                  className="relative w-9 h-9 rounded-full overflow-hidden bg-primary/20 flex-shrink-0 ring-1 ring-white/10 cursor-pointer"
-                  onClick={e => { e.stopPropagation(); onViewProfile && onViewProfile(u.email); }}
-                >
-                  {u.avatar_url
-                    ? <img src={u.avatar_url} alt="" className="w-full h-full object-cover" />
-                    : <div className="w-full h-full flex items-center justify-center text-xs font-bold text-primary">{(u.username || u.full_name || 'U')[0]}</div>
-                  }
-                  <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-background ${u.is_online ? 'bg-green-500' : 'bg-muted-foreground/30'}`} />
+                <div className="relative flex-shrink-0">
+                  <div
+                    className="w-9 h-9 rounded-full overflow-hidden bg-primary/20 ring-1 ring-white/10 cursor-pointer"
+                    onClick={e => { e.stopPropagation(); onViewProfile && onViewProfile(u.email); }}
+                  >
+                    {u.avatar_url
+                      ? <img src={u.avatar_url} alt="" className="w-full h-full object-cover" />
+                      : <div className="w-full h-full flex items-center justify-center text-xs font-bold text-primary">{(u.username || u.full_name || 'U')[0]}</div>
+                    }
+                  </div>
+                  {/* Online dot — bottom right */}
+                  <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-background ${u.is_online ? 'bg-green-500' : 'bg-muted-foreground/30'}`} />
+                  {/* Unread dot — top right */}
+                  {hasUnread && (
+                    <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-red-500 border-2 border-background" />
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium truncate">{u.username || u.full_name}</p>
+                  <p className={`text-xs font-medium truncate ${hasUnread ? 'text-foreground' : ''}`}>{u.username || u.full_name}</p>
                   <p className={`text-[10px] ${u.is_online ? 'text-green-400' : 'text-muted-foreground'}`}>
                     {u.is_online ? '● Online' : '○ Offline'}
                   </p>
                 </div>
+                {hasUnread && (
+                  <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
+                )}
               </motion.button>
             );
           })
