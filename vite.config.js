@@ -12,6 +12,10 @@ export default defineConfig({
       srcDir: 'src',
       filename: 'sw.js',
       registerType: 'autoUpdate',
+      devOptions: {
+        enabled: true,
+        type: 'module',
+      },
       includeAssets: ['bluebooks-icon.jpeg', 'favicon.svg'],
       manifest: {
         name: 'Blue Books',

@@ -38,6 +38,6 @@ export function usePushNotifications(userEmail) {
       );
     };
 
-    setup().catch(() => {});
+    setup().catch(console.error);
   }, [userEmail]);
 }

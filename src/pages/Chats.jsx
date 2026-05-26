@@ -51,7 +51,8 @@ export default function Chats() {
       if (error) throw error;
       return data;
     },
-    staleTime: 30_000,
+    staleTime: 0,
+    refetchInterval: 10_000,
   });
 
   const createGroup = useMutation({
