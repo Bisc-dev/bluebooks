@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Users, Lock, MessageCircle, Search, Plus, X, ChevronRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
-export default function ChatSidebar({ groups, users, user, selectedConv, onSelectGroup, onSelectDM, onNewGroup, onNewChat, isMember, onViewProfile, unreadMap = {}, lastMsgByConv = {} }) {
+export default function ChatSidebar({ groups, users, user, selectedConv, onSelectGroup, onSelectDM, onNewGroup, onNewChat, isMember, onViewProfile, unreadMap = {}, lastMsgByConv = {}, onlineEmails = new Set() }) {
   const [tab, setTab] = useState('dms');
   const [search, setSearch] = useState('');
   const [showMembers, setShowMembers] = useState(false);
@@ -182,7 +182,7 @@ export default function ChatSidebar({ groups, users, user, selectedConv, onSelec
                     }
                   </div>
                   {/* Online dot — bottom right */}
-                  <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-background ${u.is_online ? 'bg-green-500' : 'bg-muted-foreground/30'}`} />
+                  <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-background ${onlineEmails.has(u.email) ? 'bg-green-500' : 'bg-muted-foreground/30'}`} />
                   {/* Unread dot — top right */}
                   {hasUnread && (
                     <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-red-500 border-2 border-background" />
@@ -190,8 +190,8 @@ export default function ChatSidebar({ groups, users, user, selectedConv, onSelec
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className={`text-xs font-medium truncate ${hasUnread ? 'text-foreground' : ''}`}>{u.username || u.full_name}</p>
-                  <p className={`text-[10px] ${u.is_online ? 'text-green-400' : 'text-muted-foreground'}`}>
-                    {u.is_online ? '● Online' : '○ Offline'}
+                  <p className={`text-[10px] ${onlineEmails.has(u.email) ? 'text-green-400' : 'text-muted-foreground'}`}>
+                    {onlineEmails.has(u.email) ? '● Online' : '○ Offline'}
                   </p>
                 </div>
                 {hasUnread && (
@@ -244,12 +244,12 @@ export default function ChatSidebar({ groups, users, user, selectedConv, onSelec
                       ? <img src={u.avatar_url} alt="" className="w-full h-full object-cover" />
                       : <div className="w-full h-full flex items-center justify-center text-xs font-bold text-primary">{(u.username || u.full_name || '?')[0].toUpperCase()}</div>
                     }
-                    <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-background ${u.is_online ? 'bg-green-500' : 'bg-muted-foreground/30'}`} />
+                    <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-background ${onlineEmails.has(u.email) ? 'bg-green-500' : 'bg-muted-foreground/30'}`} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium truncate">{u.username || u.full_name}</p>
-                    <p className={`text-[10px] ${u.is_online ? 'text-green-400' : 'text-muted-foreground'}`}>
-                      {u.is_online ? '● Online' : '○ Offline'}
+                    <p className={`text-[10px] ${onlineEmails.has(u.email) ? 'text-green-400' : 'text-muted-foreground'}`}>
+                      {onlineEmails.has(u.email) ? '● Online' : '○ Offline'}
                     </p>
                   </div>
                   <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 flex-shrink-0" />

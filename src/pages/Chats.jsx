@@ -14,9 +14,31 @@ export default function Chats() {
   const [showCreate, setShowCreate] = useState(false);
   const [showNewChat, setShowNewChat] = useState(false);
   const [viewingProfile, setViewingProfile] = useState(null);
+  const [onlineEmails, setOnlineEmails] = useState(new Set());
   const queryClient = useQueryClient();
 
   const { user: authUser } = useAuth();
+
+  // Realtime presence — quem está online agora
+  useEffect(() => {
+    if (!authUser?.email) return;
+
+    const channel = supabase.channel('presence:online-users', {
+      config: { presence: { key: authUser.email } },
+    });
+
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        setOnlineEmails(new Set(Object.keys(channel.presenceState())));
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({ email: authUser.email });
+        }
+      });
+
+    return () => { supabase.removeChannel(channel); };
+  }, [authUser?.email]);
 
   const { data: user } = useQuery({
     queryKey: ['me', authUser?.email],
@@ -179,6 +201,7 @@ export default function Chats() {
             onViewProfile={setViewingProfile}
             unreadMap={unreadMap}
             lastMsgByConv={lastMsgByConv}
+            onlineEmails={onlineEmails}
           />
         </div>
 
@@ -190,6 +213,7 @@ export default function Chats() {
               user={user}
               onClose={() => setSelectedConv(null)}
               onViewProfile={setViewingProfile}
+              onlineEmails={onlineEmails}
             />
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 text-muted-foreground px-8">

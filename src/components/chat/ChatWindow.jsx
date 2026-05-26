@@ -36,7 +36,7 @@ const GIF_SUGGESTIONS = [
   'https://media.giphy.com/media/xT9IgG50Lg7russbD6/giphy.gif',
 ];
 
-export default function ChatWindow({ conv, user, onClose, onViewProfile }) {
+export default function ChatWindow({ conv, user, onClose, onViewProfile, onlineEmails = new Set() }) {
   const [text, setText] = useState('');
   const [replyTo, setReplyTo] = useState(null);
   const [showGifs, setShowGifs] = useState(false);
@@ -135,7 +135,8 @@ export default function ChatWindow({ conv, user, onClose, onViewProfile }) {
   };
 
   const title = isGroup ? conv.data.name : (conv.data.username || conv.data.full_name);
-  const subtitle = isGroup ? `${(conv.data.members || []).length} membros` : (conv.data.is_online ? 'Online' : 'Offline');
+  const isPartnerOnline = !isGroup && onlineEmails.has(conv.data?.email);
+  const subtitle = isGroup ? `${(conv.data.members || []).length} membros` : (isPartnerOnline ? 'Online' : 'Offline');
   const avatar = isGroup ? conv.data.photo_url : conv.data.avatar_url;
 
   return (
@@ -171,7 +172,7 @@ export default function ChatWindow({ conv, user, onClose, onViewProfile }) {
           >
             {title}
           </button>
-          <p className={`text-[10px] ${!isGroup && conv.data.is_online ? 'text-green-400' : 'text-muted-foreground'}`}>{subtitle}</p>
+          <p className={`text-[10px] ${isPartnerOnline ? 'text-green-400' : 'text-muted-foreground'}`}>{subtitle}</p>
         </div>
       </div>
 
