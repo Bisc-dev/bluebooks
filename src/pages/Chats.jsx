@@ -99,40 +99,46 @@ export default function Chats() {
     });
   };
 
-  const { data: lastIncomingMessages = [] } = useQuery({
-    queryKey: ['dm-last-incoming', user?.email],
+  const { data: recentDmMessages = [] } = useQuery({
+    queryKey: ['dm-recent-messages', user?.email],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('direct_messages')
         .select('conversation_id, created_by, created_date')
         .ilike('conversation_id', `%${user.email}%`)
-        .neq('created_by', user.email)
         .order('created_date', { ascending: false })
-        .limit(200);
+        .limit(300);
       if (error) throw error;
-      // Keep only the most recent message per conversation
-      const byConv = {};
-      for (const msg of data || []) {
-        if (!byConv[msg.conversation_id]) byConv[msg.conversation_id] = msg;
-      }
-      return Object.values(byConv);
+      return data || [];
     },
     enabled: !!user?.email,
     refetchInterval: 8_000,
   });
+
+  // From recentDmMessages derive two maps in one pass
+  const lastMsgByConv = {};     // convId → latest created_date (any sender, for sorting)
+  const lastIncomingByConv = {}; // convId → latest msg from others (for unread)
+  for (const msg of recentDmMessages) {
+    if (!lastMsgByConv[msg.conversation_id]) {
+      lastMsgByConv[msg.conversation_id] = msg.created_date;
+    }
+    if (msg.created_by !== user?.email && !lastIncomingByConv[msg.conversation_id]) {
+      lastIncomingByConv[msg.conversation_id] = msg;
+    }
+  }
 
   // Mark current DM as read whenever it becomes active or new messages arrive
   useEffect(() => {
     if (!selectedConv || selectedConv.type !== 'dm' || !user?.email) return;
     const convId = [user.email, selectedConv.data.email].sort().join('_');
     markRead(convId);
-  }, [selectedConv?.data?.email, lastIncomingMessages, user?.email]);
+  }, [selectedConv?.data?.email, recentDmMessages, user?.email]);
 
   const unreadMap = Object.fromEntries(
-    lastIncomingMessages.map(msg => {
-      const readAt = lastRead[msg.conversation_id];
+    Object.entries(lastIncomingByConv).map(([convId, msg]) => {
+      const readAt = lastRead[convId];
       const isUnread = !readAt || new Date(msg.created_date) > new Date(readAt);
-      return [msg.conversation_id, isUnread];
+      return [convId, isUnread];
     })
   );
 
@@ -171,6 +177,7 @@ export default function Chats() {
             isMember={isMember}
             onViewProfile={setViewingProfile}
             unreadMap={unreadMap}
+            lastMsgByConv={lastMsgByConv}
           />
         </div>
 

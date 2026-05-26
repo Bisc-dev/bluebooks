@@ -4,6 +4,7 @@ import { BookOpen, MessageCircle, Users, Tv, User, LayoutDashboard, LogOut } fro
 import { motion } from 'framer-motion';
 import { useAuth } from '@/lib/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 import ThemeToggle from './ThemeToggle';
 import AnimatedBackground from './AnimatedBackground';
 import NotificationBell from '@/components/notifications/NotificationBell';
@@ -30,6 +31,8 @@ export default function Layout() {
   const location = useLocation();
   const { user, logout } = useAuth();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+
+  usePushNotifications(user?.email);
 
   useEffect(() => {
     const email = user?.email;

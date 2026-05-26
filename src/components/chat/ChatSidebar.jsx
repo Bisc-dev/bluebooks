@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Users, Lock, MessageCircle, Search, Plus, X, ChevronRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
-export default function ChatSidebar({ groups, users, user, selectedConv, onSelectGroup, onSelectDM, onNewGroup, onNewChat, isMember, onViewProfile, unreadMap = {} }) {
+export default function ChatSidebar({ groups, users, user, selectedConv, onSelectGroup, onSelectDM, onNewGroup, onNewChat, isMember, onViewProfile, unreadMap = {}, lastMsgByConv = {} }) {
   const [tab, setTab] = useState('dms');
   const [search, setSearch] = useState('');
   const [showMembers, setShowMembers] = useState(false);
@@ -34,12 +34,20 @@ export default function ChatSidebar({ groups, users, user, selectedConv, onSelec
   const normalize = s => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
   const q = normalize(search.trim());
 
-  const dmPartners = (users || []).filter(u => {
-    if (u.email === user?.email) return false;
-    if (!partnerEmails.includes(u.email)) return false;
-    if (!q) return true;
-    return normalize(u.username).includes(q) || normalize(u.full_name).includes(q) || (u.email || '').toLowerCase().includes(q);
-  });
+  const dmPartners = (users || [])
+    .filter(u => {
+      if (u.email === user?.email) return false;
+      if (!partnerEmails.includes(u.email)) return false;
+      if (!q) return true;
+      return normalize(u.username).includes(q) || normalize(u.full_name).includes(q) || (u.email || '').toLowerCase().includes(q);
+    })
+    .sort((a, b) => {
+      const convA = [user?.email, a.email].sort().join('_');
+      const convB = [user?.email, b.email].sort().join('_');
+      const tA = lastMsgByConv[convA] || '';
+      const tB = lastMsgByConv[convB] || '';
+      return tB.localeCompare(tA);
+    });
 
   const filteredGroups = (groups || []).filter(g =>
     !q || (g.name || '').toLowerCase().includes(q)

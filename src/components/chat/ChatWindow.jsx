@@ -94,13 +94,28 @@ export default function ChatWindow({ conv, user, onClose, onViewProfile }) {
         if (error) throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, payload) => {
       queryClient.invalidateQueries({ queryKey: isGroup ? ['chat-messages', groupId] : ['dm-messages', dmConvId] });
       setText('');
       setReplyTo(null);
       setShowGifs(false);
       setImgUrl('');
       setShowImgInput(false);
+
+      // Send push notification to recipient (DM only)
+      if (!isGroup && conv.data?.email) {
+        const notifBody = payload.message_type === 'text'
+          ? (payload.content || '').slice(0, 100)
+          : payload.message_type === 'gif' ? '🎞️ Enviou um GIF' : '📷 Enviou uma imagem';
+        supabase.functions.invoke('send-push', {
+          body: {
+            recipientEmail: conv.data.email,
+            title: payload.sender_name || 'BlueBooks',
+            body: notifBody,
+            url: '/chats',
+          },
+        });
+      }
     },
   });
 
