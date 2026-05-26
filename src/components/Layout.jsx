@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { BookOpen, MessageCircle, Users, Tv, User, LayoutDashboard, LogOut } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -5,6 +6,15 @@ import { useAuth } from '@/lib/AuthContext';
 import ThemeToggle from './ThemeToggle';
 import AnimatedBackground from './AnimatedBackground';
 import NotificationBell from '@/components/notifications/NotificationBell';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 const navItems = [
   { path: '/', icon: LayoutDashboard, label: 'Painel', mobileLabel: 'Painel' },
@@ -18,6 +28,7 @@ const navItems = [
 export default function Layout() {
   const location = useLocation();
   const { user, logout } = useAuth();
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
@@ -64,7 +75,7 @@ export default function Layout() {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => logout(true)}
+              onClick={() => setShowLogoutDialog(true)}
               title="Sair"
               className="p-2 rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-300"
             >
@@ -108,6 +119,25 @@ export default function Layout() {
           })}
         </div>
       </nav>
+      <Dialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Sair da conta</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja sair? Você precisará fazer login novamente para acessar o BlueBooks.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowLogoutDialog(false)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={() => logout(true)}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Sair
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
