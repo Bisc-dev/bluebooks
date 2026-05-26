@@ -3,14 +3,17 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { BookOpen, Users, TrendingUp, Heart, Eye, ArrowRight, Sparkles, Download } from 'lucide-react';
+import { BookOpen, Users, TrendingUp, Heart, Eye, ArrowRight, Sparkles, Download, Share } from 'lucide-react';
 import BookCard from '@/components/library/BookCard';
+
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
 export default function Dashboard() {
   const [installPrompt, setInstallPrompt] = useState(null);
   const [isInstalled, setIsInstalled] = useState(
     () => window.matchMedia('(display-mode: standalone)').matches
   );
+  const [showIOSHint, setShowIOSHint] = useState(false);
 
   useEffect(() => {
     if (isInstalled) return;
@@ -20,11 +23,14 @@ export default function Dashboard() {
   }, [isInstalled]);
 
   const handleInstall = async () => {
+    if (isIOS) { setShowIOSHint(h => !h); return; }
     if (!installPrompt) return;
     await installPrompt.prompt();
     const { outcome } = await installPrompt.userChoice;
     if (outcome === 'accepted') { setInstallPrompt(null); setIsInstalled(true); }
   };
+
+  const showInstallButton = !isInstalled && (installPrompt || isIOS);
   const { data: books = [] } = useQuery({
     queryKey: ['books'],
     queryFn: async () => {
@@ -87,16 +93,30 @@ export default function Dashboard() {
                 Explorar Livraria
               </motion.button>
             </Link>
-            {!isInstalled && installPrompt && (
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleInstall}
-                className="flex items-center gap-2 px-6 py-2.5 bg-card border border-primary/30 text-foreground rounded-xl font-medium text-sm hover:bg-card/80 hover:border-primary/60 transition-all"
-              >
-                <Download className="w-4 h-4 text-primary" />
-                Instalar App
-              </motion.button>
+            {showInstallButton && (
+              <div className="flex flex-col gap-2">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleInstall}
+                  className="flex items-center gap-2 px-6 py-2.5 bg-card border border-primary/30 text-foreground rounded-xl font-medium text-sm hover:bg-card/80 hover:border-primary/60 transition-all"
+                >
+                  {isIOS ? <Share className="w-4 h-4 text-primary" /> : <Download className="w-4 h-4 text-primary" />}
+                  {isIOS ? 'Adicionar à Tela Inicial' : 'Instalar App'}
+                </motion.button>
+                {showIOSHint && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-xs text-muted-foreground bg-card border border-border/50 rounded-xl px-4 py-3 space-y-1 max-w-xs"
+                  >
+                    <p className="font-medium text-foreground mb-1.5">Como instalar no iPhone/iPad:</p>
+                    <p>1. Toque em <strong>Compartilhar</strong> <span className="font-mono">⎙</span> na barra do Safari</p>
+                    <p>2. Role e toque em <strong>"Adicionar à Tela Inicial"</strong></p>
+                    <p>3. Confirme tocando em <strong>"Adicionar"</strong></p>
+                  </motion.div>
+                )}
+              </div>
             )}
           </div>
         </div>
