@@ -49,7 +49,7 @@ export default function RoomChat({ room, user }) {
     const content = text.trim();
     setText('');
     setSending(true);
-    await supabase.from('chat_messages').insert({
+    const { data } = await supabase.from('chat_messages').insert({
       group_id: room.id,
       content,
       sender_name: user?.username || user?.full_name || 'Anônimo',
@@ -57,7 +57,10 @@ export default function RoomChat({ room, user }) {
       message_type: 'text',
       created_by: user?.email || '',
       created_date: new Date().toISOString(),
-    });
+    }).select().single();
+    if (data) {
+      setMessages(prev => prev.some(m => m.id === data.id) ? prev : [...prev, data]);
+    }
     setSending(false);
   };
 

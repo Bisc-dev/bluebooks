@@ -50,6 +50,7 @@ export default function WatchRoom({ initialRoom, user, onLeave, onViewProfile })
   const iframeRef = useRef(null);
   const lastSyncApplied = useRef(0);
   const isHost = user?.email === initialRoom?.host_email;
+  const currentTimeRef = useRef(0);
 
   const { data: room } = useQuery({
     queryKey: ['watch-room', initialRoom.id],
@@ -137,6 +138,35 @@ export default function WatchRoom({ initialRoom, user, onLeave, onViewProfile })
     },
   });
 
+  // Host: track video position via YouTube iframe events + auto-sync every 15s
+  useEffect(() => {
+    if (!isHost) return;
+    const mutate = updateRoom.mutate;
+    const handleMessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data?.event === 'infoDelivery' && typeof data?.info?.currentTime === 'number') {
+          currentTimeRef.current = data.info.currentTime;
+        }
+        if (data?.event === 'onStateChange' && (data.info === 1 || data.info === 2)) {
+          mutate({
+            current_time: currentTimeRef.current,
+            last_sync_at: Date.now(),
+            is_playing: data.info === 1,
+          });
+        }
+      } catch {}
+    };
+    window.addEventListener('message', handleMessage);
+    const interval = setInterval(() => {
+      mutate({ current_time: currentTimeRef.current, last_sync_at: Date.now() });
+    }, 15000);
+    return () => {
+      window.removeEventListener('message', handleMessage);
+      clearInterval(interval);
+    };
+  }, [isHost, updateRoom.mutate]);
+
   const handleLeave = () => {
     onLeave();
   };
@@ -148,7 +178,7 @@ export default function WatchRoom({ initialRoom, user, onLeave, onViewProfile })
   };
 
   const hostSync = (extra = {}) => {
-    updateRoom.mutate({ last_sync_at: Date.now(), ...extra });
+    updateRoom.mutate({ last_sync_at: Date.now(), current_time: currentTimeRef.current, ...extra });
   };
 
   const saveRoomSettings = () => {
