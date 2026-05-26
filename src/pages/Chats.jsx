@@ -150,12 +150,22 @@ export default function Chats() {
     }
   }
 
-  // Mark current DM as read whenever it becomes active or new messages arrive
+  const markGroupRead = (groupId) => {
+    const prev = JSON.parse(localStorage.getItem('group_last_read') || '{}');
+    prev[groupId] = new Date().toISOString();
+    localStorage.setItem('group_last_read', JSON.stringify(prev));
+  };
+
+  // Mark current conversation as read whenever it becomes active or new messages arrive
   useEffect(() => {
-    if (!selectedConv || selectedConv.type !== 'dm' || !user?.email) return;
-    const convId = [user.email, selectedConv.data.email].sort().join('_');
-    markRead(convId);
-  }, [selectedConv?.data?.email, recentDmMessages, user?.email]);
+    if (!selectedConv || !user?.email) return;
+    if (selectedConv.type === 'dm') {
+      const convId = [user.email, selectedConv.data.email].sort().join('_');
+      markRead(convId);
+    } else if (selectedConv.type === 'group') {
+      markGroupRead(selectedConv.data.id);
+    }
+  }, [selectedConv?.data?.email, selectedConv?.data?.id, recentDmMessages, user?.email]);
 
   const unreadMap = Object.fromEntries(
     Object.entries(lastIncomingByConv).map(([convId, msg]) => {
