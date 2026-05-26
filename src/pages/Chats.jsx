@@ -89,11 +89,13 @@ export default function Chats() {
   const handleSelectGroup = (group) => {
     if (!isMember(group)) joinGroup.mutate(group);
     setSelectedConv({ type: 'group', data: group });
+    window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
   const handleSelectDM = (u) => {
     setSelectedConv({ type: 'dm', data: u });
     setShowNewChat(false);
+    window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
   return (
@@ -161,6 +163,11 @@ export default function Chats() {
         <UserProfile
           userEmail={viewingProfile}
           onClose={() => setViewingProfile(null)}
+          onStartChat={(email) => {
+            const target = users.find(u => u.email === email);
+            if (target) handleSelectDM(target);
+            setViewingProfile(null);
+          }}
         />
       )}
     </div>

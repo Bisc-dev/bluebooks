@@ -43,7 +43,7 @@ function ProfileModal({ onClose, children }) {
   );
 }
 
-export default function UserProfile({ userEmail, onClose }) {
+export default function UserProfile({ userEmail, onClose, onStartChat }) {
   const { user: authUser } = useAuth();
 
   const { data: allUsers = [], isLoading: loadingUsers } = useQuery({
@@ -222,12 +222,19 @@ export default function UserProfile({ userEmail, onClose }) {
           </div>
         )}
 
-        {isOwnProfile && (
+        {isOwnProfile ? (
           <Link to="/perfil" onClick={onClose}>
             <div className="w-full text-center py-2.5 rounded-xl bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors">
               Ver meu perfil completo
             </div>
           </Link>
+        ) : onStartChat && (
+          <button
+            onClick={() => { onStartChat(userEmail); onClose(); }}
+            className="w-full py-2.5 rounded-xl bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors"
+          >
+            Iniciar Conversa
+          </button>
         )}
       </div>
     </ProfileModal>

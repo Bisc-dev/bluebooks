@@ -65,7 +65,7 @@ export default function ChatSidebar({ groups, users, user, selectedConv, onSelec
           {visibleMembers.map(u => (
             <button
               key={u.id}
-              onClick={() => onViewProfile && onViewProfile(u.email)}
+              onClick={(e) => { e.stopPropagation(); onViewProfile && onViewProfile(u.email); }}
               title={u.username || u.full_name}
               className="w-9 h-9 rounded-full overflow-hidden bg-primary/20 flex-shrink-0 ring-1 ring-white/10 hover:ring-primary/50 transition-all"
             >
@@ -76,7 +76,7 @@ export default function ChatSidebar({ groups, users, user, selectedConv, onSelec
             </button>
           ))}
           <button
-            onClick={() => setShowMembers(true)}
+            onClick={(e) => { e.stopPropagation(); setShowMembers(true); }}
             title="Ver todos os membros"
             className="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex-shrink-0 flex items-center justify-center hover:bg-white/10 transition-colors"
           >
