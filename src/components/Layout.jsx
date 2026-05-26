@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { BookOpen, MessageCircle, Users, Tv, User, LayoutDashboard } from 'lucide-react';
+import { BookOpen, MessageCircle, Users, Tv, User, LayoutDashboard, LogOut } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/lib/AuthContext';
 import ThemeToggle from './ThemeToggle';
@@ -17,7 +17,7 @@ const navItems = [
 
 export default function Layout() {
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
@@ -61,6 +61,15 @@ export default function Layout() {
           <div className="flex items-center gap-2">
             <NotificationBell user={user} />
             <ThemeToggle />
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => logout(true)}
+              title="Sair"
+              className="p-2 rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-300"
+            >
+              <LogOut className="w-4 h-4" />
+            </motion.button>
           </div>
         </div>
       </header>
