@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { Heart, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-export default function BookCard({ book, rank, showRank, compact }) {
+export default function BookCard({ book, rank = null, showRank = false, compact = false }) {
   const isFeatured = showRank && rank;
 
   return (

@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Edit2, Check, X, BookOpen, Eye, Camera } from 'lucide-react';
+import { Edit2, Check, X, BookOpen, Eye, Camera, Shield } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -232,10 +233,20 @@ export default function Profile() {
               {user.bio && (
                 <p className="text-muted-foreground text-sm max-w-lg leading-relaxed">{user.bio}</p>
               )}
-              <ProfileTags tags={user.tags || []} />
+              <ProfileTags tags={user.profile_tags || []} />
             </>
           )}
         </div>
+
+        {/* Admin button */}
+        {user.role === 'admin' && (
+          <Link to="/admin">
+            <Button variant="outline" size="sm" className="gap-2 rounded-xl border-primary/40 text-primary hover:bg-primary/10">
+              <Shield className="w-4 h-4" />
+              Painel Admin
+            </Button>
+          </Link>
+        )}
 
         {/* Stats */}
         <div className="flex gap-4 flex-wrap">

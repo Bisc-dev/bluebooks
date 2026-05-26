@@ -7,8 +7,6 @@ import ChatSidebar from '@/components/chat/ChatSidebar.jsx';
 import ChatWindow from '@/components/chat/ChatWindow';
 import CreateGroupDialog from '@/components/chat/CreateGroupDialog';
 import NewChatModal from '@/components/chat/NewChatModal.jsx';
-import FloatingChatButton from '@/components/chat/FloatingChatButton.jsx';
-import StatusBar from '@/components/status/StatusBar.jsx';
 import UserProfile from '@/pages/UserProfile';
 
 export default function Chats() {
@@ -100,11 +98,6 @@ export default function Chats() {
 
   return (
     <div className="max-w-7xl mx-auto px-2 md:px-4 py-4 md:py-6 flex flex-col gap-4">
-      {/* Status Bar */}
-      <div className="rounded-2xl border border-border/30 bg-card/60 backdrop-blur-sm overflow-hidden shadow-sm">
-        <StatusBar currentUser={user} />
-      </div>
-
       {/* Chat area */}
       <div
         className="flex h-[calc(100vh-14rem)] md:h-[calc(100vh-12rem)] rounded-2xl overflow-hidden border border-white/10 shadow-2xl"
@@ -146,13 +139,6 @@ export default function Chats() {
           )}
         </div>
       </div>
-
-      {/* Floating button */}
-      <FloatingChatButton
-        onNewChat={() => setShowNewChat(true)}
-        onNewGroup={() => setShowCreate(true)}
-        onSearch={() => setShowNewChat(true)}
-      />
 
       <CreateGroupDialog
         open={showCreate}

@@ -1,24 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/lib/AuthContext';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { BookOpen, Users, TrendingUp, Heart, Eye, ArrowRight, Sparkles } from 'lucide-react';
 import BookCard from '@/components/library/BookCard';
-import StatusBar from '@/components/status/StatusBar.jsx';
 
 export default function Dashboard() {
-  const { user: authUser } = useAuth();
-
-  const { data: user } = useQuery({
-    queryKey: ['me', authUser?.email],
-    queryFn: async () => {
-      const { data } = await supabase.from('users').select('*').eq('email', authUser.email).single();
-      return data;
-    },
-    enabled: !!authUser?.email,
-  });
-
   const { data: books = [] } = useQuery({
     queryKey: ['books'],
     queryFn: async () => {
@@ -53,11 +40,6 @@ export default function Dashboard() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 space-y-10">
-      {/* Status Bar */}
-      <div className="rounded-2xl border border-border/30 bg-card/60 backdrop-blur-sm overflow-hidden shadow-sm">
-        <StatusBar currentUser={user} />
-      </div>
-
       {/* Hero */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
