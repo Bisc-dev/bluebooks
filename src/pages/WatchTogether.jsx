@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
-import { Plus, Tv, Trash2 } from 'lucide-react';
+import { Plus, Tv, Trash2, Clapperboard, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,6 +16,24 @@ import WatchRoom from '@/components/cineblue/WatchRoom.jsx';
 import UserProfile from '@/pages/UserProfile';
 
 export default function WatchTogether() {
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-20 flex flex-col items-center justify-center text-center gap-6">
+      <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center">
+        <Clapperboard className="w-10 h-10 text-primary/60" />
+      </div>
+      <div className="space-y-2">
+        <h1 className="font-heading text-3xl font-bold">CineBlue</h1>
+        <p className="text-muted-foreground max-w-sm">
+          Esta funcionalidade está em construção e em breve estará disponível para você.
+        </p>
+      </div>
+      <div className="flex items-center gap-2 text-sm text-muted-foreground/60 bg-muted/30 px-4 py-2 rounded-full">
+        <Clock className="w-4 h-4" />
+        <span>Em breve</span>
+      </div>
+    </div>
+  );
+
   const [showCreate, setShowCreate] = useState(false);
   const [activeRoom, setActiveRoom] = useState(null);
   const [pendingRoom, setPendingRoom] = useState(null);
