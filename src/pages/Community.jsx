@@ -49,6 +49,9 @@ export default function Community() {
         created_date: new Date().toISOString(),
       });
       if (error) throw error;
+      if (!data.is_draft && user?.email) {
+        await supabase.rpc('add_xp', { user_email: user.email, amount: 60 });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['blog-posts'] });

@@ -138,7 +138,6 @@ export default function Profile() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
       {/* Banner + Avatar */}
-      <div className="space-y-2">
       <div className="relative">
         {/* Banner */}
         <div className="relative h-40 md:h-56 rounded-2xl overflow-hidden bg-gradient-to-br from-primary/30 via-primary/10 to-accent group">
@@ -204,7 +203,7 @@ export default function Profile() {
 
       {/* Admin button */}
       {user.role === 'admin' && (
-        <div className="flex justify-end">
+        <div className="flex justify-end -mt-5">
           <Link to="/admin">
             <Button variant="outline" size="sm" className="gap-2 rounded-xl border-primary/40 text-primary hover:bg-primary/10">
               <Shield className="w-4 h-4" />
@@ -213,10 +212,9 @@ export default function Profile() {
           </Link>
         </div>
       )}
-      </div>
 
       {/* Profile info */}
-      <div className="pt-14 space-y-5">
+      <div className={`${user.role === 'admin' ? 'pt-4' : 'pt-14'} space-y-5`}>
         <div className="space-y-3">
           {editing ? (
             <div className="space-y-3 max-w-md">

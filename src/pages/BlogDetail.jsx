@@ -139,6 +139,15 @@ export default function BlogDetail() {
         .eq('id', post.id);
       if (error) throw error;
 
+      const alreadyRewarded = (post.xp_rewarded_likes || []).includes(user?.email);
+      if (!isLiked && !alreadyRewarded && user?.email) {
+        await supabase.rpc('add_xp', { user_email: user.email, amount: 10 });
+        await supabase
+          .from('blog_posts')
+          .update({ xp_rewarded_likes: [...(post.xp_rewarded_likes || []), user.email] })
+          .eq('id', post.id);
+      }
+
       if (!isLiked && post.created_by && post.created_by !== user?.email) {
         await supabase.from('notifications').insert({
           recipient_email: post.created_by,
