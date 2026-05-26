@@ -209,7 +209,6 @@ export default function ChatSidebar({ groups, users, user, selectedConv, onSelec
                   value={memberSearch}
                   onChange={e => setMemberSearch(e.target.value)}
                   className="pl-8 h-8 text-xs bg-black/20 border-white/10 rounded-xl"
-                  autoFocus
                 />
               </div>
             </div>

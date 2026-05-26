@@ -99,10 +99,10 @@ export default function Chats() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-2 md:px-4 py-4 md:py-6 flex flex-col gap-4">
+    <div className="md:max-w-7xl md:mx-auto md:px-4 md:py-6 md:flex md:flex-col md:gap-4">
       {/* Chat area */}
       <div
-        className="flex h-[calc(100vh-14rem)] md:h-[calc(100vh-12rem)] rounded-2xl overflow-hidden border border-white/10 shadow-2xl"
+        className="flex h-[calc(100dvh-9rem)] md:h-[calc(100vh-12rem)] md:rounded-2xl overflow-hidden md:border border-white/10 shadow-2xl"
         style={{ background: 'linear-gradient(135deg, hsl(222 35% 9%) 0%, hsl(222 30% 13%) 100%)' }}
       >
         {/* Sidebar */}
