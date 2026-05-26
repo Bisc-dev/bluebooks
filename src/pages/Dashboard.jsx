@@ -1,11 +1,30 @@
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { BookOpen, Users, TrendingUp, Heart, Eye, ArrowRight, Sparkles } from 'lucide-react';
+import { BookOpen, Users, TrendingUp, Heart, Eye, ArrowRight, Sparkles, Download } from 'lucide-react';
 import BookCard from '@/components/library/BookCard';
 
 export default function Dashboard() {
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [isInstalled, setIsInstalled] = useState(
+    () => window.matchMedia('(display-mode: standalone)').matches
+  );
+
+  useEffect(() => {
+    if (isInstalled) return;
+    const handler = (e) => { e.preventDefault(); setInstallPrompt(e); };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, [isInstalled]);
+
+  const handleInstall = async () => {
+    if (!installPrompt) return;
+    await installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') { setInstallPrompt(null); setIsInstalled(true); }
+  };
   const { data: books = [] } = useQuery({
     queryKey: ['books'],
     queryFn: async () => {
@@ -58,15 +77,28 @@ export default function Dashboard() {
           <p className="text-muted-foreground max-w-lg text-sm md:text-base">
             Descubra novos mundos, conecte-se com leitores e mergulhe em histórias incríveis.
           </p>
-          <Link to="/livraria">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="mt-6 px-6 py-2.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all"
-            >
-              Explorar Livraria
-            </motion.button>
-          </Link>
+          <div className="mt-6 flex items-center gap-3 flex-wrap">
+            <Link to="/livraria">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="px-6 py-2.5 bg-primary text-primary-foreground rounded-xl font-medium text-sm shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all"
+              >
+                Explorar Livraria
+              </motion.button>
+            </Link>
+            {!isInstalled && installPrompt && (
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleInstall}
+                className="flex items-center gap-2 px-6 py-2.5 bg-card border border-primary/30 text-foreground rounded-xl font-medium text-sm hover:bg-card/80 hover:border-primary/60 transition-all"
+              >
+                <Download className="w-4 h-4 text-primary" />
+                Instalar App
+              </motion.button>
+            )}
+          </div>
         </div>
       </motion.div>
 
