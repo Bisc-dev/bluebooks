@@ -7,6 +7,28 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { shortTime } from '@/lib/timeUtils';
 
+const toBrasiliaDay = (dateStr) =>
+  new Date(dateStr).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+
+const formatConvStart = (dateStr) => {
+  const d = new Date(dateStr);
+  const date = d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric' });
+  const time = d.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
+  return `${date} às ${time}`;
+};
+
+const formatDaySep = (dateStr) => {
+  const msgDay = toBrasiliaDay(dateStr);
+  const today = toBrasiliaDay(new Date().toISOString());
+  const yesterday = toBrasiliaDay(new Date(Date.now() - 86400000).toISOString());
+  if (msgDay === today) return 'Hoje';
+  if (msgDay === yesterday) return 'Ontem';
+  const label = new Date(dateStr).toLocaleDateString('pt-BR', {
+    timeZone: 'America/Sao_Paulo', weekday: 'long', day: 'numeric', month: 'long',
+  });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+};
+
 const GIF_SUGGESTIONS = [
   'https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif',
   'https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif',
@@ -140,9 +162,36 @@ export default function ChatWindow({ conv, user, onClose, onViewProfile }) {
 
       {/* Messages */}
       <div className="relative z-10 flex-1 overflow-y-auto px-3 py-4 space-y-2">
-        {messages.map((msg) => {
+        {messages.length === 0 && (
+          <p className="text-center text-xs text-muted-foreground/50 py-12">
+            {isGroup ? 'Nenhuma mensagem ainda.' : 'Seja o primeiro a enviar uma mensagem!'}
+          </p>
+        )}
+        {messages.flatMap((msg, i) => {
           const isMe = msg.created_by === user?.email;
-          return (
+          const isFirst = i === 0;
+          const prevMsg = messages[i - 1];
+          const sameDay = prevMsg && toBrasiliaDay(msg.created_date) === toBrasiliaDay(prevMsg.created_date);
+
+          const separator = isFirst ? (
+            <div key={`sep-${msg.id}`} className="flex items-center gap-2 py-3">
+              <div className="flex-1 h-px bg-white/10" />
+              <span className="text-[10px] text-muted-foreground/50 font-medium whitespace-nowrap">
+                Conversa iniciada em {formatConvStart(msg.created_date)}
+              </span>
+              <div className="flex-1 h-px bg-white/10" />
+            </div>
+          ) : !sameDay ? (
+            <div key={`sep-${msg.id}`} className="flex items-center gap-2 py-2">
+              <div className="flex-1 h-px bg-white/10" />
+              <span className="text-[10px] text-muted-foreground/50 font-medium whitespace-nowrap">
+                {formatDaySep(msg.created_date)}
+              </span>
+              <div className="flex-1 h-px bg-white/10" />
+            </div>
+          ) : null;
+
+          const messageEl = (
             <motion.div
               key={msg.id}
               initial={{ opacity: 0, y: 8, scale: 0.97 }}
@@ -207,6 +256,8 @@ export default function ChatWindow({ conv, user, onClose, onViewProfile }) {
               )}
             </motion.div>
           );
+
+          return separator ? [separator, messageEl] : [messageEl];
         })}
         <div ref={bottomRef} />
       </div>

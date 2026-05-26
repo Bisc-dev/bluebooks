@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
@@ -16,12 +16,6 @@ export default function Chats() {
   const [viewingProfile, setViewingProfile] = useState(null);
   const queryClient = useQueryClient();
 
-  useEffect(() => {
-    const html = document.documentElement;
-    const prev = html.style.overflow;
-    html.style.overflow = 'hidden';
-    return () => { html.style.overflow = prev; };
-  }, []);
   const { user: authUser } = useAuth();
 
   const { data: user } = useQuery({
@@ -96,20 +90,18 @@ export default function Chats() {
   const handleSelectGroup = (group) => {
     if (!isMember(group)) joinGroup.mutate(group);
     setSelectedConv({ type: 'group', data: group });
-    window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
   const handleSelectDM = (u) => {
     setSelectedConv({ type: 'dm', data: u });
     setShowNewChat(false);
-    window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
   return (
     <div className="md:max-w-7xl md:mx-auto md:px-4 md:py-6 md:flex md:flex-col md:gap-4">
-      {/* Chat area */}
+      {/* Chat area — fixed on mobile to avoid page-scroll issues */}
       <div
-        className="flex h-[calc(100dvh-7.5rem)] md:h-[calc(100vh-12rem)] md:rounded-2xl overflow-hidden md:border border-white/10 shadow-2xl"
+        className="flex fixed inset-x-0 top-16 bottom-14 md:static md:h-[calc(100vh-12rem)] md:rounded-2xl overflow-hidden md:border border-white/10 shadow-2xl"
         style={{ background: 'linear-gradient(135deg, hsl(222 35% 9%) 0%, hsl(222 30% 13%) 100%)' }}
       >
         {/* Sidebar */}
