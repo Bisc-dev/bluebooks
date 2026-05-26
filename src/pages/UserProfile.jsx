@@ -27,13 +27,13 @@ function ProfileModal({ onClose, children }) {
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm"
+        className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       >
         <motion.div
-          initial={{ opacity: 0, y: 60 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 60 }}
+          initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
           transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-          className="w-full sm:max-w-md bg-card rounded-t-3xl sm:rounded-2xl overflow-hidden max-h-[90vh] flex flex-col"
+          className="w-full max-w-md bg-card rounded-2xl overflow-hidden max-h-[85vh] flex flex-col"
           onClick={e => e.stopPropagation()}
         >
           {children}
