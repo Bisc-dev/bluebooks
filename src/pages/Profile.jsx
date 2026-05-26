@@ -238,9 +238,6 @@ export default function Profile() {
                 <h1 className="font-heading text-2xl md:text-3xl font-bold">
                   {user.username || user.full_name || 'Usuário'}
                 </h1>
-                {user.full_name && user.username && (
-                  <p className="text-sm text-muted-foreground">{user.full_name}</p>
-                )}
               </div>
               {user.bio && (
                 <p className="text-muted-foreground text-sm max-w-lg leading-relaxed">{user.bio}</p>
