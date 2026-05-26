@@ -6,17 +6,24 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 
+const EMPTY = { name: '', description: '', is_private: false, photo_url: '' };
+
 export default function CreateGroupDialog({ open, onOpenChange, onSubmit, isPending }) {
-  const [form, setForm] = useState({ name: '', description: '', is_private: false, photo_url: '' });
+  const [form, setForm] = useState(EMPTY);
 
   const handle = () => {
-    if (!form.name) return;
+    if (!form.name.trim()) return;
     onSubmit(form);
-    setForm({ name: '', description: '', is_private: false, photo_url: '' });
+    setForm(EMPTY);
+  };
+
+  const handleOpenChange = (val) => {
+    if (!val) setForm(EMPTY);
+    onOpenChange(val);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="rounded-2xl border-white/10 bg-card/95 backdrop-blur-xl">
         <DialogHeader>
           <DialogTitle className="font-heading">Criar Grupo</DialogTitle>

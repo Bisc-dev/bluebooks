@@ -95,7 +95,18 @@ export default function ChatSidebar({ groups, users, user, selectedConv, onSelec
 
       {/* Conversations header */}
       <div className="p-3 border-b border-white/10 space-y-2 flex-shrink-0">
-        <h2 className="font-heading text-base font-bold px-1">Conversas</h2>
+        <div className="flex items-center justify-between px-1">
+          <h2 className="font-heading text-base font-bold">Conversas</h2>
+          {tab === 'groups' && (
+            <button
+              onClick={onNewGroup}
+              title="Criar grupo"
+              className="flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" /> Criar grupo
+            </button>
+          )}
+        </div>
 
         <div className="flex gap-1 bg-black/20 rounded-xl p-1">
           {[{ id: 'dms', label: 'Privado', icon: MessageCircle }, { id: 'groups', label: 'Grupos', icon: Users }].map(t => (
@@ -124,9 +135,22 @@ export default function ChatSidebar({ groups, users, user, selectedConv, onSelec
       <div className="flex-1 overflow-y-auto py-1">
         {tab === 'groups' ? (
           filteredGroups.length === 0 ? (
-            <p className="text-center text-xs text-muted-foreground py-8">
-              {q ? `Nenhum grupo para "${search}"` : 'Nenhum grupo ainda'}
-            </p>
+            <div className="flex flex-col items-center gap-3 py-10 px-4 text-center">
+              <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+                <Users className="w-6 h-6 text-primary/50" />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {q ? `Nenhum grupo para "${search}"` : 'Nenhum grupo ainda'}
+              </p>
+              {!q && (
+                <button
+                  onClick={onNewGroup}
+                  className="text-xs font-medium text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Criar o primeiro grupo
+                </button>
+              )}
+            </div>
           ) : filteredGroups.map(group => {
             const active = selectedConv?.type === 'group' && selectedConv?.data?.id === group.id;
             return (
