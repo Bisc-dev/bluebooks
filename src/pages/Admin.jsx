@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { motion } from 'framer-motion';
 import { Shield, Plus, Trash2, BookOpen, Image, Save, X, ArrowLeft, Users, Tag } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -227,6 +228,7 @@ function BooksManager({ queryClient }) {
 }
 
 function AdminsManager({ queryClient, currentUser }) {
+  const { toast } = useToast();
   const { data: users = [] } = useQuery({
     queryKey: ['users'],
     queryFn: async () => {
@@ -241,18 +243,28 @@ function AdminsManager({ queryClient, currentUser }) {
 
   const promoteMutation = useMutation({
     mutationFn: async (userId) => {
-      const { error } = await supabase.from('users').update({ role: 'admin' }).eq('id', userId);
+      const { data, error } = await supabase.from('users').update({ role: 'admin' }).eq('id', userId).select();
       if (error) throw error;
+      if (!data?.length) throw new Error('Nenhuma linha atualizada — verifique as políticas RLS da tabela users no Supabase.');
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast({ title: 'Usuário promovido a administrador.' });
+    },
+    onError: (err) => toast({ title: 'Erro ao promover', description: err.message, variant: 'destructive' }),
   });
 
   const demoteMutation = useMutation({
     mutationFn: async (userId) => {
-      const { error } = await supabase.from('users').update({ role: 'user' }).eq('id', userId);
+      const { data, error } = await supabase.from('users').update({ role: 'user' }).eq('id', userId).select();
       if (error) throw error;
+      if (!data?.length) throw new Error('Nenhuma linha atualizada — verifique as políticas RLS da tabela users no Supabase.');
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast({ title: 'Administrador removido.' });
+    },
+    onError: (err) => toast({ title: 'Erro ao remover admin', description: err.message, variant: 'destructive' }),
   });
 
   return (
@@ -278,10 +290,11 @@ function AdminsManager({ queryClient, currentUser }) {
               {admin.email !== currentUser?.email && (
                 <Button
                   variant="outline" size="sm"
+                  disabled={demoteMutation.isPending}
                   onClick={() => confirm('Remover administrador?') && demoteMutation.mutate(admin.id)}
                   className="rounded-lg text-destructive"
                 >
-                  Remover Admin
+                  {demoteMutation.isPending ? 'Removendo...' : 'Remover Admin'}
                 </Button>
               )}
             </div>
@@ -309,10 +322,12 @@ function AdminsManager({ queryClient, currentUser }) {
               </div>
               <Button
                 variant="outline" size="sm"
+                disabled={promoteMutation.isPending}
                 onClick={() => confirm('Promover a administrador?') && promoteMutation.mutate(u.id)}
                 className="rounded-lg text-primary"
               >
-                <Shield className="w-3.5 h-3.5 mr-1" /> Promover
+                <Shield className="w-3.5 h-3.5 mr-1" />
+                {promoteMutation.isPending ? 'Promovendo...' : 'Promover'}
               </Button>
             </div>
           ))}
