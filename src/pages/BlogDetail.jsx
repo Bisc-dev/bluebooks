@@ -3,10 +3,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Heart, Send, Trash2, Pencil, Check, X, CornerDownRight } from 'lucide-react';
+import { ArrowLeft, Heart, Send, Trash2, Pencil, Check, X, CornerDownRight, Bell } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useToast } from '@/components/ui/use-toast';
 import { timeAgo } from '@/lib/timeUtils';
 import UserProfile from './UserProfile';
 
@@ -18,8 +20,10 @@ export default function BlogDetail() {
   const [replyingTo, setReplyingTo] = useState(null);
   const [replyText, setReplyText] = useState('');
   const [viewingUser, setViewingUser] = useState(null);
+  const [showNotifyConfirm, setShowNotifyConfirm] = useState(false);
   const queryClient = useQueryClient();
   const { user: authUser } = useAuth();
+  const { toast } = useToast();
 
   const { data: user } = useQuery({
     queryKey: ['me', authUser?.email],
@@ -211,6 +215,34 @@ export default function BlogDetail() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['blog-post', postId] }),
   });
 
+  const notifyAllMutation = useMutation({
+    mutationFn: async () => {
+      const { data: users, error } = await supabase
+        .from('users')
+        .select('email');
+      if (error) throw error;
+      const now = new Date().toISOString();
+      const notifications = users.map(u => ({
+        recipient_email: u.email,
+        sender_email: authUser.email,
+        sender_name: user?.username || user?.full_name || 'Admin',
+        sender_avatar: user?.avatar_url || '',
+        type: 'admin_broadcast',
+        message: `Nova postagem disponível: "${post.title}"`,
+        link: `/comunidade/${postId}`,
+        ref_id: postId,
+        created_date: now,
+      }));
+      const { error: notifError } = await supabase.from('notifications').insert(notifications);
+      if (notifError) throw notifError;
+    },
+    onSuccess: () => {
+      setShowNotifyConfirm(false);
+      toast({ title: 'Notificação enviada para todos os usuários!' });
+    },
+    onError: () => toast({ title: 'Erro ao enviar notificação', variant: 'destructive' }),
+  });
+
   const getCommentAuthor = (comment) => {
     const u = allUsers.find(u => u.email === comment.created_by);
     return {
@@ -331,14 +363,25 @@ export default function BlogDetail() {
           <span>{timeAgo(post.created_date)}</span>
         </div>
 
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          onClick={() => likeMutation.mutate()}
-          className={`flex items-center gap-2 text-sm font-medium transition-colors ${isLiked ? 'text-pink-500' : 'text-muted-foreground hover:text-pink-500'}`}
-        >
-          <Heart className={`w-5 h-5 ${isLiked ? 'fill-pink-500' : ''}`} />
-          {post.likes || 0} curtida{(post.likes || 0) !== 1 ? 's' : ''}
-        </motion.button>
+        <div className="flex items-center gap-3 flex-wrap">
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => likeMutation.mutate()}
+            className={`flex items-center gap-2 text-sm font-medium transition-colors ${isLiked ? 'text-pink-500' : 'text-muted-foreground hover:text-pink-500'}`}
+          >
+            <Heart className={`w-5 h-5 ${isLiked ? 'fill-pink-500' : ''}`} />
+            {post.likes || 0} curtida{(post.likes || 0) !== 1 ? 's' : ''}
+          </motion.button>
+
+          {user?.role === 'admin' && (
+            <button
+              onClick={() => setShowNotifyConfirm(true)}
+              className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+            >
+              <Bell className="w-4 h-4" /> Notificar usuários
+            </button>
+          )}
+        </div>
       </div>
 
       <div
@@ -434,6 +477,28 @@ export default function BlogDetail() {
       <AnimatePresence>
         {viewingUser && <UserProfile userEmail={viewingUser} onClose={() => setViewingUser(null)} />}
       </AnimatePresence>
+
+      <Dialog open={showNotifyConfirm} onOpenChange={setShowNotifyConfirm}>
+        <DialogContent className="rounded-2xl border-white/10 bg-card/95 backdrop-blur-xl max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-heading flex items-center gap-2">
+              <Bell className="w-5 h-5 text-primary" /> Disparar Notificação
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Isso vai enviar uma notificação para <strong className="text-foreground">todos os usuários</strong> sobre a postagem <strong className="text-foreground">"{post?.title}"</strong>. Deseja continuar?
+          </p>
+          <div className="flex gap-3 justify-end mt-1">
+            <Button variant="outline" onClick={() => setShowNotifyConfirm(false)} className="rounded-xl">
+              Cancelar
+            </Button>
+            <Button onClick={() => notifyAllMutation.mutate()} disabled={notifyAllMutation.isPending} className="bg-primary rounded-xl gap-2">
+              <Bell className="w-4 h-4" />
+              {notifyAllMutation.isPending ? 'Enviando...' : 'Disparar agora'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

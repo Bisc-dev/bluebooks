@@ -3,15 +3,28 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { motion } from 'framer-motion';
-import { Heart, Eye, ArrowLeft, FileText, BookOpen } from 'lucide-react';
+import { Heart, Eye, ArrowLeft, FileText, BookOpen, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useToast } from '@/components/ui/use-toast';
 import BookCard from '@/components/library/BookCard';
 
 export default function BookDetail() {
   const bookId = window.location.pathname.split('/').pop();
   const queryClient = useQueryClient();
   const { user: authUser } = useAuth();
+  const { toast } = useToast();
+  const [showNotifyConfirm, setShowNotifyConfirm] = useState(false);
+
+  const { data: user } = useQuery({
+    queryKey: ['me', authUser?.email],
+    queryFn: async () => {
+      const { data } = await supabase.from('users').select('*').eq('email', authUser.email).single();
+      return data;
+    },
+    enabled: !!authUser?.email,
+  });
 
   const { data: book, isLoading } = useQuery({
     queryKey: ['book', bookId],
@@ -57,6 +70,34 @@ export default function BookDetail() {
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['book', bookId] }),
+  });
+
+  const notifyAllMutation = useMutation({
+    mutationFn: async () => {
+      const { data: users, error } = await supabase
+        .from('users')
+        .select('email');
+      if (error) throw error;
+      const now = new Date().toISOString();
+      const notifications = users.map(u => ({
+        recipient_email: u.email,
+        sender_email: authUser.email,
+        sender_name: user?.username || user?.full_name || 'Admin',
+        sender_avatar: user?.avatar_url || '',
+        type: 'admin_broadcast',
+        message: `Novo livro disponível: "${book.title}"`,
+        link: `/livraria/${bookId}`,
+        ref_id: bookId,
+        created_date: now,
+      }));
+      const { error: notifError } = await supabase.from('notifications').insert(notifications);
+      if (notifError) throw notifError;
+    },
+    onSuccess: () => {
+      setShowNotifyConfirm(false);
+      toast({ title: 'Notificação enviada para todos os usuários!' });
+    },
+    onError: () => toast({ title: 'Erro ao enviar notificação', variant: 'destructive' }),
   });
 
   if (isLoading || !book) {
@@ -139,6 +180,17 @@ export default function BookDetail() {
               <Heart className={`w-4 h-4 ${isLiked ? 'fill-pink-500' : ''}`} />
               {isLiked ? 'Curtido' : 'Curtir'}
             </motion.button>
+
+            {user?.role === 'admin' && (
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setShowNotifyConfirm(true)}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm bg-card border border-border/50 text-muted-foreground hover:text-primary hover:border-primary/30 transition-all duration-300"
+              >
+                <Bell className="w-4 h-4" /> Notificar usuários
+              </motion.button>
+            )}
           </div>
 
           {/* Read buttons */}
@@ -181,6 +233,27 @@ export default function BookDetail() {
           </div>
         </section>
       )}
+      <Dialog open={showNotifyConfirm} onOpenChange={setShowNotifyConfirm}>
+        <DialogContent className="rounded-2xl border-white/10 bg-card/95 backdrop-blur-xl max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-heading flex items-center gap-2">
+              <Bell className="w-5 h-5 text-primary" /> Disparar Notificação
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Isso vai enviar uma notificação para <strong className="text-foreground">todos os usuários</strong> sobre o livro <strong className="text-foreground">"{book?.title}"</strong>. Deseja continuar?
+          </p>
+          <div className="flex gap-3 justify-end mt-1">
+            <Button variant="outline" onClick={() => setShowNotifyConfirm(false)} className="rounded-xl">
+              Cancelar
+            </Button>
+            <Button onClick={() => notifyAllMutation.mutate()} disabled={notifyAllMutation.isPending} className="bg-primary rounded-xl gap-2">
+              <Bell className="w-4 h-4" />
+              {notifyAllMutation.isPending ? 'Enviando...' : 'Disparar agora'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
