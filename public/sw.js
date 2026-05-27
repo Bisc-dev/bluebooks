@@ -1,3 +1,8 @@
+// Required for PWA installability criteria on Android Chrome
+self.addEventListener('fetch', (event) => {
+  event.respondWith(fetch(event.request));
+});
+
 self.addEventListener('push', (event) => {
   const data = event.data?.json() || {};
   const { title = 'BlueBooks', body = 'Nova notificação', url = '/', tag } = data;

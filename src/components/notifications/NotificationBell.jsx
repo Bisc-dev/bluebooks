@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, Heart, MessageCircle, Eye, User, CheckCheck, Loader2 } from 'lucide-react';
+import { Bell, Heart, MessageCircle, Eye, User, CheckCheck, Loader2, BellRing, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { timeAgo } from '@/lib/timeUtils';
 
@@ -17,9 +17,32 @@ const typeIcon = {
 
 export default function NotificationBell({ user }) {
   const [open, setOpen] = useState(false);
+  const [showPermissionBanner, setShowPermissionBanner] = useState(false);
   const panelRef = useRef(null);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!user?.email) return;
+    if (Notification.permission === 'default') {
+      const dismissed = localStorage.getItem('notif_banner_dismissed');
+      if (!dismissed) setShowPermissionBanner(true);
+    }
+  }, [user?.email]);
+
+  const handleEnableNotifications = async () => {
+    const permission = await Notification.requestPermission();
+    setShowPermissionBanner(false);
+    localStorage.setItem('notif_banner_dismissed', '1');
+    if (permission === 'granted') {
+      new Notification('BlueBooks', { body: 'Notificações ativadas com sucesso!', icon: '/bluebooks-icon.jpeg' });
+    }
+  };
+
+  const handleDismissBanner = () => {
+    setShowPermissionBanner(false);
+    localStorage.setItem('notif_banner_dismissed', '1');
+  };
 
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: ['notifications', user?.email],
@@ -111,6 +134,43 @@ export default function NotificationBell({ user }) {
   };
 
   return (
+    <>
+      <AnimatePresence>
+        {showPermissionBanner && (
+          <motion.div
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            className="fixed top-[4.5rem] left-3 right-3 md:left-auto md:right-4 md:w-80 z-[200] bg-card border border-primary/30 rounded-2xl shadow-xl p-4 flex gap-3"
+          >
+            <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+              <BellRing className="w-5 h-5 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold">Ativar notificações?</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Receba alertas de curtidas, comentários e seguidores diretamente no seu celular.</p>
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={handleEnableNotifications}
+                  className="flex-1 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+                >
+                  Ativar
+                </button>
+                <button
+                  onClick={handleDismissBanner}
+                  className="flex-1 py-1.5 rounded-lg bg-muted text-muted-foreground text-xs font-medium hover:bg-accent transition-colors"
+                >
+                  Agora não
+                </button>
+              </div>
+            </div>
+            <button onClick={handleDismissBanner} className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     <div className="relative" ref={panelRef}>
       <motion.button
         whileHover={{ scale: 1.05 }}
@@ -218,5 +278,6 @@ export default function NotificationBell({ user }) {
         )}
       </AnimatePresence>
     </div>
+    </>
   );
 }
