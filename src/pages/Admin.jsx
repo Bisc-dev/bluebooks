@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { motion } from 'framer-motion';
-import { Shield, Plus, Trash2, BookOpen, Image, Save, X, ArrowLeft, Users, Tag } from 'lucide-react';
+import { Shield, Plus, Trash2, BookOpen, Save, X, ArrowLeft, Users, Tag } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Link } from 'react-router-dom';
 import TagsManager from '@/components/admin/TagsManager';
+import ImageUploader from '@/components/profile/ImageUploader';
 
 const genres = [
   'Romance', 'Dark Romance', 'Fantasia', 'Fantasia Sombria',
@@ -185,13 +186,13 @@ function BooksManager({ queryClient }) {
           <Textarea placeholder="Descrição" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="rounded-xl" />
 
           <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Image className="w-4 h-4 text-muted-foreground" />
-              <Input placeholder="URL da capa" value={form.cover_url} onChange={e => setForm({ ...form, cover_url: e.target.value })} className="rounded-xl" />
-            </div>
             {form.cover_url && (
               <img src={form.cover_url} alt="Preview" className="w-32 aspect-[2/3] object-cover rounded-xl" />
             )}
+            <ImageUploader
+              onUpload={url => setForm({ ...form, cover_url: url })}
+              label={form.cover_url ? 'Trocar capa' : 'Enviar capa do livro'}
+            />
           </div>
 
           <Input placeholder="Link do PDF (Google Drive)" value={form.pdf_link} onChange={e => setForm({ ...form, pdf_link: e.target.value })} className="rounded-xl" />

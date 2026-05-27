@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Edit2, Check, X, BookOpen, Eye, Camera, Shield } from 'lucide-react';
+import { Edit2, Check, X, BookOpen, Camera, Shield, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,8 +10,8 @@ import { Textarea } from '@/components/ui/textarea';
 import BookCard from '@/components/library/BookCard';
 import ReputationBar from '@/components/profile/ReputationBar';
 import ProfileTags from '@/components/profile/ProfileTags';
-import ProfileViewsPanel from '@/components/profile/ProfileViewsPanel';
 import ImageUploader from '@/components/profile/ImageUploader';
+import BlogPostCard from '@/components/community/BlogPostCard';
 
 async function uploadFile(file) {
   const ext = file.name.split('.').pop();
@@ -28,7 +27,6 @@ export default function Profile() {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({});
-  const [showViews, setShowViews] = useState(false);
 
   const { data: user, isLoading: loadingUser } = useQuery({
     queryKey: ['me', authUser?.email],
@@ -52,15 +50,15 @@ export default function Profile() {
     },
   });
 
-  const { data: profileViews = [] } = useQuery({
-    queryKey: ['profile-views', user?.email],
+  const { data: userPosts = [] } = useQuery({
+    queryKey: ['user-posts', user?.email],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('profile_views')
+        .from('blog_posts')
         .select('*')
-        .eq('profile_owner_email', user.email)
-        .order('created_date', { ascending: false })
-        .limit(50);
+        .eq('created_by', user.email)
+        .eq('is_draft', false)
+        .order('created_date', { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -251,41 +249,44 @@ export default function Profile() {
         <div className="flex gap-4 flex-wrap">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <BookOpen className="w-4 h-4" />
-            <span>{books.length} livros na biblioteca</span>
+            <span>{books.filter(b => (b.liked_by || []).includes(user?.email)).length} livros curtidos</span>
           </div>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setShowViews(true)}
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
-          >
-            <Eye className="w-4 h-4" />
-            <span>{profileViews.length} visualizações do perfil</span>
-          </motion.button>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <FileText className="w-4 h-4" />
+            <span>{userPosts.length} postagens</span>
+          </div>
         </div>
 
         {/* Reputation */}
         <ReputationBar xp={user.xp || user.reputation || 0} />
       </div>
 
-      {/* Books section */}
-      {books.length > 0 && (
+      {/* Liked books section */}
+      {(() => {
+        const likedBooks = books.filter(b => (b.liked_by || []).includes(user?.email));
+        return likedBooks.length > 0 ? (
+          <section>
+            <h2 className="font-heading text-xl font-bold mb-5">Livros curtidos</h2>
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-3">
+              {likedBooks.slice(0, 16).map(book => (
+                <BookCard key={book.id} book={book} />
+              ))}
+            </div>
+          </section>
+        ) : null;
+      })()}
+
+      {/* Posts section */}
+      {userPosts.length > 0 && (
         <section>
-          <h2 className="font-heading text-xl font-bold mb-5">Livraria</h2>
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-3">
-            {books.slice(0, 16).map(book => (
-              <BookCard key={book.id} book={book} />
+          <h2 className="font-heading text-xl font-bold mb-5">Postagens</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {userPosts.map(post => (
+              <BlogPostCard key={post.id} post={post} canEdit={false} onEdit={() => {}} onDelete={() => {}} user={user} />
             ))}
           </div>
         </section>
       )}
-
-      {/* Profile views panel */}
-      <AnimatePresence>
-        {showViews && (
-          <ProfileViewsPanel userEmail={user.email} onClose={() => setShowViews(false)} />
-        )}
-      </AnimatePresence>
     </div>
   );
 }

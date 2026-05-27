@@ -99,7 +99,7 @@ export default function Community() {
   };
 
   const canEdit = (post) => {
-    return user?.email === post.created_by || user?.role === 'admin';
+    return user?.email === post.created_by;
   };
 
   return (
