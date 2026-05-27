@@ -27,6 +27,19 @@ export default function BlogPostCard({ post, canEdit, onEdit, onDelete, user }) 
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['blog-posts'] }),
   });
 
+  const { data: commentCount = 0 } = useQuery({
+    queryKey: ['comment-count', post.id],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('comments')
+        .select('*', { count: 'exact', head: true })
+        .eq('post_id', post.id);
+      if (error) throw error;
+      return count || 0;
+    },
+    staleTime: 60_000,
+  });
+
   const { data: allUsers = [] } = useQuery({
     queryKey: ['users-list'],
     queryFn: async () => {
@@ -108,7 +121,7 @@ export default function BlogPostCard({ post, canEdit, onEdit, onDelete, user }) 
             </motion.button>
             <Link to={`/comunidade/${post.id}`} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
               <MessageCircle className="w-4 h-4" />
-              Comentar
+              {commentCount}
             </Link>
           </div>
         </div>

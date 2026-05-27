@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { AnimatePresence } from 'framer-motion';
-import { Edit2, Check, X, BookOpen, Camera, Shield, FileText, Users } from 'lucide-react';
+import { Edit2, Check, X, BookOpen, Camera, Shield, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import ProfileTags from '@/components/profile/ProfileTags';
 import ImageUploader from '@/components/profile/ImageUploader';
 import BlogPostCard from '@/components/community/BlogPostCard';
 import UserProfile from '@/pages/UserProfile';
+import FollowListModal from '@/components/profile/FollowListModal';
 
 async function uploadFile(file) {
   const ext = file.name.split('.').pop();
@@ -30,6 +31,8 @@ export default function Profile() {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({});
   const [viewingUser, setViewingUser] = useState(null);
+  const [showFollowersModal, setShowFollowersModal] = useState(false);
+  const [showFollowingModal, setShowFollowingModal] = useState(false);
 
   const { data: user, isLoading: loadingUser } = useQuery({
     queryKey: ['me', authUser?.email],
@@ -286,7 +289,25 @@ export default function Profile() {
           )}
         </div>
 
-        {/* Stats */}
+        {/* Followers / Following — destaque */}
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowFollowersModal(true)}
+            className="flex flex-col items-center px-5 py-2.5 bg-card/60 border border-border/40 rounded-xl hover:bg-accent/50 hover:border-primary/30 transition-colors"
+          >
+            <span className="font-bold text-lg leading-none">{followers.length}</span>
+            <span className="text-xs text-muted-foreground mt-0.5">seguidores</span>
+          </button>
+          <button
+            onClick={() => setShowFollowingModal(true)}
+            className="flex flex-col items-center px-5 py-2.5 bg-card/60 border border-border/40 rounded-xl hover:bg-accent/50 hover:border-primary/30 transition-colors"
+          >
+            <span className="font-bold text-lg leading-none">{following.length}</span>
+            <span className="text-xs text-muted-foreground mt-0.5">seguindo</span>
+          </button>
+        </div>
+
+        {/* Stats secundários */}
         <div className="flex gap-4 flex-wrap">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <BookOpen className="w-4 h-4" />
@@ -295,14 +316,6 @@ export default function Profile() {
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <FileText className="w-4 h-4" />
             <span>{userPosts.length} postagens</span>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Users className="w-4 h-4" />
-            <span>{followers.length} seguidores</span>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Users className="w-4 h-4" />
-            <span>{following.length} seguindo</span>
           </div>
         </div>
 
@@ -337,57 +350,12 @@ export default function Profile() {
         </section>
       )}
 
-      {/* Followers section */}
-      {followers.length > 0 && (
-        <section>
-          <h2 className="font-heading text-xl font-bold mb-4">Seguidores ({followers.length})</h2>
-          <div className="flex flex-wrap gap-2">
-            {followers.map(u => (
-              <button
-                key={u.email}
-                onClick={() => setViewingUser(u.email)}
-                className="flex items-center gap-2 bg-card/60 border border-border/30 rounded-xl px-3 py-2 hover:bg-accent/50 transition-colors"
-              >
-                <div className="w-8 h-8 rounded-full overflow-hidden bg-primary/20 flex-shrink-0">
-                  {u.avatar_url
-                    ? <img src={u.avatar_url} alt="" className="w-full h-full object-cover" />
-                    : <div className="w-full h-full flex items-center justify-center text-xs font-bold text-primary">{(u.username || u.full_name || 'U')[0].toUpperCase()}</div>
-                  }
-                </div>
-                <span className="text-sm font-medium">{u.username || u.full_name}</span>
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Following section */}
-      {following.length > 0 && (
-        <section>
-          <h2 className="font-heading text-xl font-bold mb-4">Seguindo ({following.length})</h2>
-          <div className="flex flex-wrap gap-2">
-            {following.map(u => (
-              <button
-                key={u.email}
-                onClick={() => setViewingUser(u.email)}
-                className="flex items-center gap-2 bg-card/60 border border-border/30 rounded-xl px-3 py-2 hover:bg-accent/50 transition-colors"
-              >
-                <div className="w-8 h-8 rounded-full overflow-hidden bg-primary/20 flex-shrink-0">
-                  {u.avatar_url
-                    ? <img src={u.avatar_url} alt="" className="w-full h-full object-cover" />
-                    : <div className="w-full h-full flex items-center justify-center text-xs font-bold text-primary">{(u.username || u.full_name || 'U')[0].toUpperCase()}</div>
-                  }
-                </div>
-                <span className="text-sm font-medium">{u.username || u.full_name}</span>
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
-
       <AnimatePresence>
         {viewingUser && <UserProfile userEmail={viewingUser} onClose={() => setViewingUser(null)} onStartChat={undefined} />}
       </AnimatePresence>
+
+      <FollowListModal open={showFollowersModal} onClose={() => setShowFollowersModal(false)} title="Seguidores" users={followers} />
+      <FollowListModal open={showFollowingModal} onClose={() => setShowFollowingModal(false)} title="Seguindo" users={following} />
     </div>
   );
 }

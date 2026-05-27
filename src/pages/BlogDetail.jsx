@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Heart, Send, Trash2, Pencil, Check, X } from 'lucide-react';
+import { ArrowLeft, Heart, Send, Trash2, Pencil, Check, X, CornerDownRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,8 @@ export default function BlogDetail() {
   const [commentText, setCommentText] = useState('');
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [editingCommentText, setEditingCommentText] = useState('');
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [replyText, setReplyText] = useState('');
   const [viewingUser, setViewingUser] = useState(null);
   const queryClient = useQueryClient();
   const { user: authUser } = useAuth();
@@ -63,13 +65,16 @@ export default function BlogDetail() {
         .from('comments')
         .select('*')
         .eq('post_id', postId)
-        .order('created_date', { ascending: false })
-        .limit(100);
+        .order('created_date', { ascending: true })
+        .limit(200);
       if (error) throw error;
       return data;
     },
     enabled: !!postId,
   });
+
+  const topLevelComments = comments.filter(c => !c.parent_id);
+  const getReplies = (commentId) => comments.filter(c => c.parent_id === commentId);
 
   const postAuthor = allUsers.find(u => u.email === post?.created_by);
   const authorAvatar = postAuthor?.avatar_url || post?.author_avatar || '';
@@ -79,6 +84,7 @@ export default function BlogDetail() {
     mutationFn: async (content) => {
       const { error } = await supabase.from('comments').insert({
         post_id: postId,
+        parent_id: null,
         content,
         author_name: user?.username || user?.full_name || 'Anônimo',
         author_avatar: user?.avatar_url || '',
@@ -103,7 +109,44 @@ export default function BlogDetail() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['comments', postId] });
+      queryClient.invalidateQueries({ queryKey: ['comment-count', postId] });
       setCommentText('');
+    },
+  });
+
+  const addReply = useMutation({
+    mutationFn: async ({ content, parentId }) => {
+      const { error } = await supabase.from('comments').insert({
+        post_id: postId,
+        parent_id: parentId,
+        content,
+        author_name: user?.username || user?.full_name || 'Anônimo',
+        author_avatar: user?.avatar_url || '',
+        created_by: user?.email,
+        created_date: new Date().toISOString(),
+      });
+      if (error) throw error;
+
+      const parentComment = comments.find(c => c.id === parentId);
+      if (parentComment?.created_by && parentComment.created_by !== user?.email) {
+        await supabase.from('notifications').insert({
+          recipient_email: parentComment.created_by,
+          sender_email: user?.email,
+          sender_name: user?.username || user?.full_name || 'Alguém',
+          sender_avatar: user?.avatar_url || '',
+          type: 'reply',
+          message: `${user?.username || user?.full_name || 'Alguém'} respondeu ao seu comentário`,
+          link: `/comunidade/${postId}`,
+          ref_id: postId,
+          created_date: new Date().toISOString(),
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['comments', postId] });
+      queryClient.invalidateQueries({ queryKey: ['comment-count', postId] });
+      setReplyingTo(null);
+      setReplyText('');
     },
   });
 
@@ -112,7 +155,10 @@ export default function BlogDetail() {
       const { error } = await supabase.from('comments').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['comments', postId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['comments', postId] });
+      queryClient.invalidateQueries({ queryKey: ['comment-count', postId] });
+    },
   });
 
   const updateComment = useMutation({
@@ -165,15 +211,6 @@ export default function BlogDetail() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['blog-post', postId] }),
   });
 
-  const startEditComment = (comment) => {
-    setEditingCommentId(comment.id);
-    setEditingCommentText(comment.content);
-  };
-
-  const confirmDeleteComment = (id) => {
-    if (confirm('Excluir este comentário?')) deleteComment.mutate(id);
-  };
-
   const getCommentAuthor = (comment) => {
     const u = allUsers.find(u => u.email === comment.created_by);
     return {
@@ -196,6 +233,78 @@ export default function BlogDetail() {
 
   const isLiked = (post.liked_by || []).includes(user?.email);
 
+  const CommentItem = ({ comment, isReply = false }) => {
+    const author = getCommentAuthor(comment);
+    const canEdit = user?.email === comment.created_by;
+    const isEditing = editingCommentId === comment.id;
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={`bg-card/60 border border-border/30 rounded-xl p-4 ${isReply ? 'bg-card/40' : ''}`}
+      >
+        <div className="flex items-start gap-3">
+          <button onClick={() => setViewingUser(author.email)} className="flex-shrink-0">
+            <div className="w-7 h-7 rounded-full bg-primary/20 overflow-hidden hover:ring-2 hover:ring-primary/50 transition-all">
+              {author.avatar
+                ? <img src={author.avatar} alt="" className="w-full h-full object-cover" />
+                : <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-primary">{author.name[0]}</div>
+              }
+            </div>
+          </button>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <button onClick={() => setViewingUser(author.email)} className="text-sm font-medium hover:text-primary transition-colors">{author.name}</button>
+                <span className="text-xs text-muted-foreground">{timeAgo(comment.created_date)}</span>
+                {comment.edited && <span className="text-[10px] text-muted-foreground/60 italic">editado</span>}
+              </div>
+              {canEdit && !isEditing && (
+                <div className="flex gap-1">
+                  <button onClick={() => { setEditingCommentId(comment.id); setEditingCommentText(comment.content); }} className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
+                    <Pencil className="w-3 h-3" />
+                  </button>
+                  <button onClick={() => confirm('Excluir este comentário?') && deleteComment.mutate(comment.id)} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
+            </div>
+            {isEditing ? (
+              <div className="flex gap-2 mt-2">
+                <Input
+                  value={editingCommentText}
+                  onChange={e => setEditingCommentText(e.target.value)}
+                  onKeyDown={e => e.key === 'Escape' && setEditingCommentId(null)}
+                  className="rounded-lg text-sm flex-1"
+                  autoFocus
+                />
+                <button onClick={() => updateComment.mutate({ id: comment.id, content: editingCommentText })} className="p-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">
+                  <Check className="w-3.5 h-3.5" />
+                </button>
+                <button onClick={() => setEditingCommentId(null)} className="p-1.5 rounded-lg bg-muted hover:bg-muted/80">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground mt-1">{comment.content}</p>
+            )}
+            {!isReply && !isEditing && (
+              <button
+                onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
+                className="mt-2 flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+              >
+                <CornerDownRight className="w-3 h-3" />
+                Responder
+              </button>
+            )}
+          </div>
+        </div>
+      </motion.div>
+    );
+  };
+
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 space-y-8">
       <Link to="/comunidade" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
@@ -213,7 +322,7 @@ export default function BlogDetail() {
             <div className="w-8 h-8 rounded-full bg-primary/20 overflow-hidden">
               {authorAvatar
                 ? <img src={authorAvatar} alt="" className="w-full h-full object-cover" />
-                : <div className="w-full h-full flex items-center justify-center text-xs font-bold text-primary">{(authorName)[0]}</div>
+                : <div className="w-full h-full flex items-center justify-center text-xs font-bold text-primary">{authorName[0]}</div>
               }
             </div>
             <span className="font-medium text-foreground/80 hover:text-primary transition-colors">{authorName}</span>
@@ -240,6 +349,7 @@ export default function BlogDetail() {
       <section className="space-y-5 pt-6 border-t border-border/50">
         <h3 className="font-heading text-lg font-bold">Comentários ({comments.length})</h3>
 
+        {/* New comment input */}
         <div className="flex gap-3">
           <div className="w-8 h-8 rounded-full bg-primary/20 overflow-hidden flex-shrink-0">
             {user?.avatar_url
@@ -265,68 +375,57 @@ export default function BlogDetail() {
           </div>
         </div>
 
-        <div className="space-y-3">
-          {comments.map(comment => {
-            const author = getCommentAuthor(comment);
-            const canEdit = user?.email === comment.created_by || user?.role === 'admin';
-            const isEditing = editingCommentId === comment.id;
-
+        {/* Comments list */}
+        <div className="space-y-4">
+          {topLevelComments.map(comment => {
+            const replies = getReplies(comment.id);
             return (
-              <motion.div
-                key={comment.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-card/60 border border-border/30 rounded-xl p-4"
-              >
-                <div className="flex items-start gap-3">
-                  <button onClick={() => setViewingUser(author.email)} className="flex-shrink-0">
-                    <div className="w-7 h-7 rounded-full bg-primary/20 overflow-hidden hover:ring-2 hover:ring-primary/50 transition-all">
-                      {author.avatar
-                        ? <img src={author.avatar} alt="" className="w-full h-full object-cover" />
-                        : <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-primary">{(author.name)[0]}</div>
+              <div key={comment.id} className="space-y-2">
+                <CommentItem comment={comment} />
+
+                {/* Reply input */}
+                {replyingTo === comment.id && (
+                  <div className="ml-10 flex gap-2">
+                    <div className="w-7 h-7 rounded-full bg-primary/20 overflow-hidden flex-shrink-0">
+                      {user?.avatar_url
+                        ? <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
+                        : <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-primary">{(user?.full_name || 'U')[0]}</div>
                       }
                     </div>
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => setViewingUser(author.email)} className="text-sm font-medium hover:text-primary transition-colors">{author.name}</button>
-                        <span className="text-xs text-muted-foreground">{timeAgo(comment.created_date)}</span>
-                        {comment.edited && <span className="text-[10px] text-muted-foreground/60 italic">editado</span>}
-                      </div>
-                      {canEdit && !isEditing && (
-                        <div className="flex gap-1">
-                          <button onClick={() => startEditComment(comment)} className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
-                            <Pencil className="w-3 h-3" />
-                          </button>
-                          <button onClick={() => confirmDeleteComment(comment.id)} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                    {isEditing ? (
-                      <div className="flex gap-2 mt-2">
-                        <Input
-                          value={editingCommentText}
-                          onChange={e => setEditingCommentText(e.target.value)}
-                          onKeyDown={e => e.key === 'Escape' && setEditingCommentId(null)}
-                          className="rounded-lg text-sm flex-1"
-                          autoFocus
-                        />
-                        <button onClick={() => updateComment.mutate({ id: comment.id, content: editingCommentText })} className="p-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">
-                          <Check className="w-3.5 h-3.5" />
-                        </button>
-                        <button onClick={() => setEditingCommentId(null)} className="p-1.5 rounded-lg bg-muted hover:bg-muted/80">
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground mt-1">{comment.content}</p>
-                    )}
+                    <Input
+                      placeholder="Escreva uma resposta..."
+                      value={replyText}
+                      onChange={e => setReplyText(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && replyText.trim()) addReply.mutate({ content: replyText, parentId: comment.id });
+                        if (e.key === 'Escape') { setReplyingTo(null); setReplyText(''); }
+                      }}
+                      className="bg-card/80 border-border/50 rounded-xl text-sm flex-1"
+                      autoFocus
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => replyText.trim() && addReply.mutate({ content: replyText, parentId: comment.id })}
+                      disabled={addReply.isPending || !replyText.trim()}
+                      className="bg-primary hover:bg-primary/90 rounded-xl"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => { setReplyingTo(null); setReplyText(''); }} className="rounded-xl">
+                      <X className="w-3.5 h-3.5" />
+                    </Button>
                   </div>
-                </div>
-              </motion.div>
+                )}
+
+                {/* Replies */}
+                {replies.length > 0 && (
+                  <div className="ml-10 space-y-2">
+                    {replies.map(reply => (
+                      <CommentItem key={reply.id} comment={reply} isReply />
+                    ))}
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>

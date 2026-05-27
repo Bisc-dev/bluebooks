@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import ImageUploader from '@/components/profile/ImageUploader';
 
 const EMPTY = { name: '', description: '', is_private: false, photo_url: '' };
 
@@ -31,7 +32,14 @@ export default function CreateGroupDialog({ open, onOpenChange, onSubmit, isPend
         <div className="space-y-3">
           <Input placeholder="Nome do grupo" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="rounded-xl" />
           <Textarea placeholder="Descrição (opcional)" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="rounded-xl" rows={2} />
-          <Input placeholder="URL da foto do grupo (opcional)" value={form.photo_url} onChange={e => setForm({ ...form, photo_url: e.target.value })} className="rounded-xl" />
+          {form.photo_url && (
+            <img src={form.photo_url} alt="Preview" className="w-16 h-16 rounded-full object-cover mx-auto" />
+          )}
+          <ImageUploader
+            onUpload={url => setForm({ ...form, photo_url: url })}
+            label={form.photo_url ? 'Trocar foto do grupo' : 'Foto do grupo (opcional)'}
+            compact={false}
+          />
           <div className="flex items-center gap-2">
             <Switch checked={form.is_private} onCheckedChange={v => setForm({ ...form, is_private: v })} />
             <Label className="text-sm">Grupo privado</Label>

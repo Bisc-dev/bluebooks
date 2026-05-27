@@ -55,7 +55,7 @@ export default function Chats() {
       const { data, error } = await supabase
         .from('chat_groups')
         .select('*')
-        .order('updated_date', { ascending: false })
+        .order('created_date', { ascending: false })
         .limit(50);
       if (error) throw error;
       return data;
@@ -84,7 +84,6 @@ export default function Chats() {
         members: [user?.email],
         admins: [user?.email],
         created_date: new Date().toISOString(),
-        updated_date: new Date().toISOString(),
       });
       if (error) throw error;
     },
