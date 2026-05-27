@@ -9,7 +9,9 @@ import BookCard from '@/components/library/BookCard';
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
 export default function Dashboard() {
-  const [installPrompt, setInstallPrompt] = useState(null);
+  const [installPrompt, setInstallPrompt] = useState(
+    () => window.__installPrompt || null
+  );
   const [isInstalled, setIsInstalled] = useState(
     () => window.matchMedia('(display-mode: standalone)').matches
   );
@@ -17,8 +19,11 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (isInstalled) return;
+    // Pick up the prompt if it arrives after mount
     const handler = (e) => { e.preventDefault(); setInstallPrompt(e); };
     window.addEventListener('beforeinstallprompt', handler);
+    // Also pick up one captured before mount
+    if (window.__installPrompt) setInstallPrompt(window.__installPrompt);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, [isInstalled]);
 
