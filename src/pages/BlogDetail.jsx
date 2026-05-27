@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { timeAgo } from '@/lib/timeUtils';
+import { pushNotify } from '@/lib/pushNotify';
 import UserProfile from './UserProfile';
 
 function CommentItem({
@@ -189,17 +190,19 @@ export default function BlogDetail() {
       if (error) throw error;
 
       if (post?.created_by && post.created_by !== user?.email) {
+        const commentMsg = `${user?.username || user?.full_name || 'Alguém'} comentou no seu blog "${post.title}"`;
         await supabase.from('notifications').insert({
           recipient_email: post.created_by,
           sender_email: user?.email,
           sender_name: user?.username || user?.full_name || 'Alguém',
           sender_avatar: user?.avatar_url || '',
           type: 'comment',
-          message: `${user?.username || user?.full_name || 'Alguém'} comentou no seu blog "${post.title}"`,
+          message: commentMsg,
           link: `/comunidade/${postId}`,
           ref_id: postId,
           created_date: new Date().toISOString(),
         });
+        pushNotify({ recipientEmail: post.created_by, body: commentMsg, url: `/comunidade/${postId}` });
       }
     },
     onSuccess: () => {
@@ -224,17 +227,19 @@ export default function BlogDetail() {
 
       const parentComment = comments.find(c => c.id === parentId);
       if (parentComment?.created_by && parentComment.created_by !== user?.email) {
+        const replyMsg = `${user?.username || user?.full_name || 'Alguém'} respondeu ao seu comentário`;
         await supabase.from('notifications').insert({
           recipient_email: parentComment.created_by,
           sender_email: user?.email,
           sender_name: user?.username || user?.full_name || 'Alguém',
           sender_avatar: user?.avatar_url || '',
           type: 'reply',
-          message: `${user?.username || user?.full_name || 'Alguém'} respondeu ao seu comentário`,
+          message: replyMsg,
           link: `/comunidade/${postId}`,
           ref_id: postId,
           created_date: new Date().toISOString(),
         });
+        pushNotify({ recipientEmail: parentComment.created_by, body: replyMsg, url: `/comunidade/${postId}` });
       }
 
       return inserted;
@@ -295,17 +300,19 @@ export default function BlogDetail() {
       }
 
       if (!isLiked && post.created_by && post.created_by !== user?.email) {
+        const likeMsg = `${user?.username || user?.full_name || 'Alguém'} curtiu seu blog "${post.title}"`;
         await supabase.from('notifications').insert({
           recipient_email: post.created_by,
           sender_email: user?.email,
           sender_name: user?.username || user?.full_name || 'Alguém',
           sender_avatar: user?.avatar_url || '',
           type: 'like',
-          message: `${user?.username || user?.full_name || 'Alguém'} curtiu seu blog "${post.title}"`,
+          message: likeMsg,
           link: `/comunidade/${postId}`,
           ref_id: postId,
           created_date: new Date().toISOString(),
         });
+        pushNotify({ recipientEmail: post.created_by, body: likeMsg, url: `/comunidade/${postId}` });
       }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['blog-post', postId] }),

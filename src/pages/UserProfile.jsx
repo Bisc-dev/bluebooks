@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { pushNotify } from '@/lib/pushNotify';
 import { useAuth } from '@/lib/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, BookOpen, Users, UserPlus, UserCheck, User } from 'lucide-react';
@@ -136,16 +137,18 @@ export default function UserProfile({ userEmail, onClose, onStartChat }) {
           .from('follows')
           .insert({ follower_email: authUser.email, following_email: userEmail, created_date: now });
         if (error) throw error;
+        const followMsg = `${currentUser?.username || currentUser?.full_name || 'Alguém'} começou a te seguir`;
         await supabase.from('notifications').insert({
           recipient_email: userEmail,
           sender_email: authUser.email,
           sender_name: currentUser?.username || currentUser?.full_name || 'Alguém',
           sender_avatar: currentUser?.avatar_url || '',
           type: 'follow',
-          message: `${currentUser?.username || currentUser?.full_name || 'Alguém'} começou a te seguir`,
+          message: followMsg,
           link: '/perfil',
           created_date: now,
         });
+        pushNotify({ recipientEmail: userEmail, body: followMsg, url: '/perfil' });
       }
     },
     onSuccess: () => {
@@ -182,16 +185,18 @@ export default function UserProfile({ userEmail, onClose, onStartChat }) {
           created_date: now,
         });
 
+        const viewMsg = `${currentUser.username || currentUser.full_name || 'Alguém'} visitou seu perfil`;
         supabase.from('notifications').insert({
           recipient_email: userEmail,
           sender_email: currentUser.email,
           sender_name: currentUser.username || currentUser.full_name || 'Alguém',
           sender_avatar: currentUser.avatar_url || '',
           type: 'profile_view',
-          message: `${currentUser.username || currentUser.full_name || 'Alguém'} visitou seu perfil`,
+          message: viewMsg,
           link: '/perfil',
           created_date: now,
         });
+        pushNotify({ recipientEmail: userEmail, body: viewMsg, url: '/perfil' });
       });
   }, [userEmail, currentUser?.email]);
 

@@ -37,6 +37,14 @@ export default function NotificationBell({ user }) {
     refetchInterval: 15_000,
   });
 
+  // Request notification permission once
+  useEffect(() => {
+    if (!user?.email) return;
+    if (Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, [user?.email]);
+
   // Real-time
   useEffect(() => {
     if (!user?.email) return;
@@ -47,8 +55,17 @@ export default function NotificationBell({ user }) {
         schema: 'public',
         table: 'notifications',
         filter: `recipient_email=eq.${user.email}`,
-      }, () => {
+      }, (payload) => {
         queryClient.invalidateQueries({ queryKey: ['notifications', user.email] });
+
+        if (Notification.permission === 'granted' && payload.new?.message) {
+          const notif = payload.new;
+          new Notification('BlueBooks', {
+            body: notif.message,
+            icon: '/bluebooks-icon.jpeg',
+            tag: notif.id,
+          });
+        }
       })
       .subscribe();
 

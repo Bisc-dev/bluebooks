@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { pushNotify } from '@/lib/pushNotify';
 import { useAuth } from '@/lib/AuthContext';
 import { AnimatePresence } from 'framer-motion';
 import { ArrowLeft, BookOpen, FileText, UserPlus, UserCheck, MessageCircle } from 'lucide-react';
@@ -145,16 +146,18 @@ export default function MemberProfile() {
           .from('follows')
           .insert({ follower_email: authUser.email, following_email: memberEmail, created_date: now });
         if (error) throw error;
+        const followMsg = `${currentUser?.username || currentUser?.full_name || 'Alguém'} começou a te seguir`;
         await supabase.from('notifications').insert({
           recipient_email: memberEmail,
           sender_email: authUser.email,
           sender_name: currentUser?.username || currentUser?.full_name || 'Alguém',
           sender_avatar: currentUser?.avatar_url || '',
           type: 'follow',
-          message: `${currentUser?.username || currentUser?.full_name || 'Alguém'} começou a te seguir`,
+          message: followMsg,
           link: `/membro/${encodeURIComponent(authUser.email)}`,
           created_date: now,
         });
+        pushNotify({ recipientEmail: memberEmail, body: followMsg, url: `/membro/${encodeURIComponent(authUser.email)}` });
       }
     },
     onSuccess: () => {
