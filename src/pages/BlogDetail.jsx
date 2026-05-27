@@ -170,7 +170,7 @@ export default function BlogDetail() {
   });
 
   const topLevelComments = comments.filter(c => !c.parent_id);
-  const getReplies = (commentId) => comments.filter(c => c.parent_id === commentId);
+  const getReplies = (commentId) => comments.filter(c => c.parent_id != null && String(c.parent_id) === String(commentId));
 
   const postAuthor = allUsers.find(u => u.email === post?.created_by);
   const authorAvatar = postAuthor?.avatar_url || post?.author_avatar || '';
@@ -211,7 +211,7 @@ export default function BlogDetail() {
 
   const addReply = useMutation({
     mutationFn: async ({ content, parentId }) => {
-      const { error } = await supabase.from('comments').insert({
+      const { data: inserted, error } = await supabase.from('comments').insert({
         post_id: postId,
         parent_id: parentId,
         content,
@@ -219,7 +219,7 @@ export default function BlogDetail() {
         author_avatar: user?.avatar_url || '',
         created_by: user?.email,
         created_date: new Date().toISOString(),
-      });
+      }).select().single();
       if (error) throw error;
 
       const parentComment = comments.find(c => c.id === parentId);
@@ -236,12 +236,17 @@ export default function BlogDetail() {
           created_date: new Date().toISOString(),
         });
       }
+
+      return inserted;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['comments', postId] });
+    onSuccess: (inserted) => {
+      queryClient.setQueryData(['comments', postId], (old = []) => [...old, inserted]);
       queryClient.invalidateQueries({ queryKey: ['comment-count', postId] });
       setReplyingTo(null);
       setReplyText('');
+    },
+    onError: (error) => {
+      toast({ title: 'Erro ao enviar resposta', description: error.message, variant: 'destructive' });
     },
   });
 
