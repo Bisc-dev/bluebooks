@@ -12,6 +12,98 @@ import { useToast } from '@/components/ui/use-toast';
 import { timeAgo } from '@/lib/timeUtils';
 import UserProfile from './UserProfile';
 
+function CommentItem({
+  comment, isReply,
+  editingCommentId, editingCommentText, setEditingCommentId, setEditingCommentText,
+  replyingTo, setReplyingTo,
+  currentUser, allUsers,
+  onDelete, onUpdate, onViewUser,
+}) {
+  const u = allUsers.find(u => u.email === comment.created_by);
+  const author = {
+    name: u?.username || u?.full_name || comment.author_name || 'Anônimo',
+    avatar: u?.avatar_url || comment.author_avatar || '',
+    email: u?.email || comment.created_by || '',
+  };
+
+  const canEdit = currentUser?.email === comment.created_by;
+  const isEditing = editingCommentId === comment.id;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`border border-border/30 rounded-xl p-4 ${isReply ? 'bg-card/40' : 'bg-card/60'}`}
+    >
+      <div className="flex items-start gap-3">
+        <button onClick={() => onViewUser(author.email)} className="flex-shrink-0">
+          <div className="w-7 h-7 rounded-full bg-primary/20 overflow-hidden hover:ring-2 hover:ring-primary/50 transition-all">
+            {author.avatar
+              ? <img src={author.avatar} alt="" className="w-full h-full object-cover" />
+              : <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-primary">{author.name[0]}</div>
+            }
+          </div>
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <button onClick={() => onViewUser(author.email)} className="text-sm font-medium hover:text-primary transition-colors">{author.name}</button>
+              <span className="text-xs text-muted-foreground">{timeAgo(comment.created_date)}</span>
+              {comment.edited && <span className="text-[10px] text-muted-foreground/60 italic">editado</span>}
+            </div>
+            {canEdit && !isEditing && (
+              <div className="flex gap-1">
+                <button
+                  onClick={() => { setEditingCommentId(comment.id); setEditingCommentText(comment.content); }}
+                  className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Pencil className="w-3 h-3" />
+                </button>
+                <button
+                  onClick={() => confirm('Excluir este comentário?') && onDelete(comment.id)}
+                  className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {isEditing ? (
+            <div className="flex gap-2 mt-2">
+              <Input
+                value={editingCommentText}
+                onChange={e => setEditingCommentText(e.target.value)}
+                onKeyDown={e => e.key === 'Escape' && setEditingCommentId(null)}
+                className="rounded-lg text-sm flex-1"
+                autoFocus
+              />
+              <button onClick={() => onUpdate({ id: comment.id, content: editingCommentText })} className="p-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">
+                <Check className="w-3.5 h-3.5" />
+              </button>
+              <button onClick={() => setEditingCommentId(null)} className="p-1.5 rounded-lg bg-muted hover:bg-muted/80">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground mt-1">{comment.content}</p>
+          )}
+
+          {!isReply && !isEditing && (
+            <button
+              onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
+              className="mt-2 flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+            >
+              <CornerDownRight className="w-3 h-3" />
+              {replyingTo === comment.id ? 'Cancelar' : 'Responder'}
+            </button>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 export default function BlogDetail() {
   const postId = window.location.pathname.split('/').pop();
   const [commentText, setCommentText] = useState('');
@@ -70,7 +162,7 @@ export default function BlogDetail() {
         .select('*')
         .eq('post_id', postId)
         .order('created_date', { ascending: true })
-        .limit(200);
+        .limit(300);
       if (error) throw error;
       return data;
     },
@@ -88,7 +180,6 @@ export default function BlogDetail() {
     mutationFn: async (content) => {
       const { error } = await supabase.from('comments').insert({
         post_id: postId,
-        parent_id: null,
         content,
         author_name: user?.username || user?.full_name || 'Anônimo',
         author_avatar: user?.avatar_url || '',
@@ -217,9 +308,7 @@ export default function BlogDetail() {
 
   const notifyAllMutation = useMutation({
     mutationFn: async () => {
-      const { data: users, error } = await supabase
-        .from('users')
-        .select('email');
+      const { data: users, error } = await supabase.from('users').select('email');
       if (error) throw error;
       const now = new Date().toISOString();
       const notifications = users.map(u => ({
@@ -243,13 +332,13 @@ export default function BlogDetail() {
     onError: () => toast({ title: 'Erro ao enviar notificação', variant: 'destructive' }),
   });
 
-  const getCommentAuthor = (comment) => {
-    const u = allUsers.find(u => u.email === comment.created_by);
-    return {
-      name: u?.username || u?.full_name || comment.author_name || 'Anônimo',
-      avatar: u?.avatar_url || comment.author_avatar || '',
-      email: u?.email || comment.created_by,
-    };
+  const commentItemProps = {
+    editingCommentId, editingCommentText, setEditingCommentId, setEditingCommentText,
+    replyingTo, setReplyingTo,
+    currentUser: user, allUsers,
+    onDelete: (id) => deleteComment.mutate(id),
+    onUpdate: (args) => updateComment.mutate(args),
+    onViewUser: setViewingUser,
   };
 
   if (!post) {
@@ -264,78 +353,6 @@ export default function BlogDetail() {
   }
 
   const isLiked = (post.liked_by || []).includes(user?.email);
-
-  const CommentItem = ({ comment, isReply = false }) => {
-    const author = getCommentAuthor(comment);
-    const canEdit = user?.email === comment.created_by;
-    const isEditing = editingCommentId === comment.id;
-
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        className={`bg-card/60 border border-border/30 rounded-xl p-4 ${isReply ? 'bg-card/40' : ''}`}
-      >
-        <div className="flex items-start gap-3">
-          <button onClick={() => setViewingUser(author.email)} className="flex-shrink-0">
-            <div className="w-7 h-7 rounded-full bg-primary/20 overflow-hidden hover:ring-2 hover:ring-primary/50 transition-all">
-              {author.avatar
-                ? <img src={author.avatar} alt="" className="w-full h-full object-cover" />
-                : <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-primary">{author.name[0]}</div>
-              }
-            </div>
-          </button>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <button onClick={() => setViewingUser(author.email)} className="text-sm font-medium hover:text-primary transition-colors">{author.name}</button>
-                <span className="text-xs text-muted-foreground">{timeAgo(comment.created_date)}</span>
-                {comment.edited && <span className="text-[10px] text-muted-foreground/60 italic">editado</span>}
-              </div>
-              {canEdit && !isEditing && (
-                <div className="flex gap-1">
-                  <button onClick={() => { setEditingCommentId(comment.id); setEditingCommentText(comment.content); }} className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
-                    <Pencil className="w-3 h-3" />
-                  </button>
-                  <button onClick={() => confirm('Excluir este comentário?') && deleteComment.mutate(comment.id)} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                </div>
-              )}
-            </div>
-            {isEditing ? (
-              <div className="flex gap-2 mt-2">
-                <Input
-                  value={editingCommentText}
-                  onChange={e => setEditingCommentText(e.target.value)}
-                  onKeyDown={e => e.key === 'Escape' && setEditingCommentId(null)}
-                  className="rounded-lg text-sm flex-1"
-                  autoFocus
-                />
-                <button onClick={() => updateComment.mutate({ id: comment.id, content: editingCommentText })} className="p-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">
-                  <Check className="w-3.5 h-3.5" />
-                </button>
-                <button onClick={() => setEditingCommentId(null)} className="p-1.5 rounded-lg bg-muted hover:bg-muted/80">
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground mt-1">{comment.content}</p>
-            )}
-            {!isReply && !isEditing && (
-              <button
-                onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
-                className="mt-2 flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-              >
-                <CornerDownRight className="w-3 h-3" />
-                Responder
-              </button>
-            )}
-          </div>
-        </div>
-      </motion.div>
-    );
-  };
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 space-y-8">
@@ -424,12 +441,21 @@ export default function BlogDetail() {
             const replies = getReplies(comment.id);
             return (
               <div key={comment.id} className="space-y-2">
-                <CommentItem comment={comment} />
+                <CommentItem comment={comment} isReply={false} {...commentItemProps} />
+
+                {/* Replies */}
+                {replies.length > 0 && (
+                  <div className="ml-10 space-y-2">
+                    {replies.map(reply => (
+                      <CommentItem key={reply.id} comment={reply} isReply={true} {...commentItemProps} />
+                    ))}
+                  </div>
+                )}
 
                 {/* Reply input */}
                 {replyingTo === comment.id && (
                   <div className="ml-10 flex gap-2">
-                    <div className="w-7 h-7 rounded-full bg-primary/20 overflow-hidden flex-shrink-0">
+                    <div className="w-7 h-7 rounded-full bg-primary/20 overflow-hidden flex-shrink-0 mt-1">
                       {user?.avatar_url
                         ? <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
                         : <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-primary">{(user?.full_name || 'U')[0]}</div>
@@ -457,15 +483,6 @@ export default function BlogDetail() {
                     <Button size="sm" variant="outline" onClick={() => { setReplyingTo(null); setReplyText(''); }} className="rounded-xl">
                       <X className="w-3.5 h-3.5" />
                     </Button>
-                  </div>
-                )}
-
-                {/* Replies */}
-                {replies.length > 0 && (
-                  <div className="ml-10 space-y-2">
-                    {replies.map(reply => (
-                      <CommentItem key={reply.id} comment={reply} isReply />
-                    ))}
                   </div>
                 )}
               </div>

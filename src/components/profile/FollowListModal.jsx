@@ -8,7 +8,7 @@ export default function FollowListModal({ open, onClose, title, users }) {
 
   return (
     <>
-      <Dialog open={open} onOpenChange={v => !v && onClose()}>
+      <Dialog open={open && !viewingUser} onOpenChange={v => !v && onClose()}>
         <DialogContent className="rounded-2xl border-white/10 bg-card/95 backdrop-blur-xl max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="font-heading">{title} ({users.length})</DialogTitle>
