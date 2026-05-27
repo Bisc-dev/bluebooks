@@ -16,6 +16,7 @@ import UserProfile from './pages/UserProfile';
 import Chats from './pages/Chats.jsx';
 import WatchTogether from './pages/WatchTogether.jsx';
 import Profile from './pages/Profile.jsx';
+import MemberProfile from './pages/MemberProfile.jsx';
 import Admin from './pages/Admin';
 import Login from './pages/Login';
 
@@ -52,6 +53,7 @@ const AuthenticatedApp = () => {
         <Route path="/chats" element={<Chats />} />
         <Route path="/assistir" element={<WatchTogether />} />
         <Route path="/perfil" element={<Profile />} />
+        <Route path="/membro/:email" element={<MemberProfile />} />
         <Route path="/admin" element={<Admin />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />

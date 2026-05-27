@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, BookOpen, Heart, Eye } from 'lucide-react';
+import { X, BookOpen, Users, UserPlus, UserCheck, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import ProfileTags from '@/components/profile/ProfileTags';
 
@@ -45,6 +45,7 @@ function ProfileModal({ onClose, children }) {
 
 export default function UserProfile({ userEmail, onClose, onStartChat }) {
   const { user: authUser } = useAuth();
+  const queryClient = useQueryClient();
 
   const { data: allUsers = [], isLoading: loadingUsers } = useQuery({
     queryKey: ['users-list'],
@@ -90,6 +91,69 @@ export default function UserProfile({ userEmail, onClose, onStartChat }) {
       return data;
     },
     enabled: !!userEmail,
+  });
+
+  const { data: followStatus } = useQuery({
+    queryKey: ['follow-status', authUser?.email, userEmail],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('follows')
+        .select('id')
+        .eq('follower_email', authUser.email)
+        .eq('following_email', userEmail)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!authUser?.email && !!userEmail && authUser.email !== userEmail,
+  });
+
+  const { data: followCounts = { followers: 0, following: 0 } } = useQuery({
+    queryKey: ['follow-counts', userEmail],
+    queryFn: async () => {
+      const [{ count: followers }, { count: following }] = await Promise.all([
+        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_email', userEmail),
+        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_email', userEmail),
+      ]);
+      return { followers: followers || 0, following: following || 0 };
+    },
+    enabled: !!userEmail,
+  });
+
+  const isFollowing = !!followStatus;
+
+  const followMutation = useMutation({
+    mutationFn: async () => {
+      if (isFollowing) {
+        const { error } = await supabase
+          .from('follows')
+          .delete()
+          .eq('follower_email', authUser.email)
+          .eq('following_email', userEmail);
+        if (error) throw error;
+      } else {
+        const now = new Date().toISOString();
+        const { error } = await supabase
+          .from('follows')
+          .insert({ follower_email: authUser.email, following_email: userEmail, created_date: now });
+        if (error) throw error;
+        await supabase.from('notifications').insert({
+          recipient_email: userEmail,
+          sender_email: authUser.email,
+          sender_name: currentUser?.username || currentUser?.full_name || 'Alguém',
+          sender_avatar: currentUser?.avatar_url || '',
+          type: 'follow',
+          message: `${currentUser?.username || currentUser?.full_name || 'Alguém'} começou a te seguir`,
+          link: '/perfil',
+          created_date: now,
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['follow-status', authUser?.email, userEmail] });
+      queryClient.invalidateQueries({ queryKey: ['follow-counts', userEmail] });
+      queryClient.invalidateQueries({ queryKey: ['followers', userEmail] });
+      queryClient.invalidateQueries({ queryKey: ['following', authUser?.email] });
+    },
   });
 
   useEffect(() => {
@@ -188,8 +252,8 @@ export default function UserProfile({ userEmail, onClose, onStartChat }) {
         <div className="grid grid-cols-3 gap-3">
           {[
             { icon: <BookOpen className="w-3.5 h-3.5" />, label: 'Posts', value: posts.length },
-            { icon: <Heart className="w-3.5 h-3.5" />, label: 'Livros lidos', value: displayUser.books_read || 0 },
-            { icon: <Eye className="w-3.5 h-3.5" />, label: 'Visualizações', value: displayUser.view_count || displayUser.profile_visits || 0 },
+            { icon: <Users className="w-3.5 h-3.5" />, label: 'Seguidores', value: followCounts.followers },
+            { icon: <Users className="w-3.5 h-3.5" />, label: 'Seguindo', value: followCounts.following },
           ].map(s => (
             <div key={s.label} className="bg-muted/40 rounded-xl p-3 text-center">
               <div className="flex justify-center text-primary mb-1">{s.icon}</div>
@@ -222,19 +286,43 @@ export default function UserProfile({ userEmail, onClose, onStartChat }) {
           </div>
         )}
 
+        {/* Actions */}
         {isOwnProfile ? (
           <Link to="/perfil" onClick={onClose}>
             <div className="w-full text-center py-2.5 rounded-xl bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors">
               Ver meu perfil completo
             </div>
           </Link>
-        ) : onStartChat && (
-          <button
-            onClick={() => { onStartChat(userEmail); onClose(); }}
-            className="w-full py-2.5 rounded-xl bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors"
-          >
-            Iniciar Conversa
-          </button>
+        ) : (
+          <div className="flex gap-2">
+            <button
+              onClick={() => followMutation.mutate()}
+              disabled={followMutation.isPending}
+              className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                isFollowing
+                  ? 'bg-muted hover:bg-destructive/10 hover:text-destructive text-muted-foreground'
+                  : 'bg-primary text-white hover:bg-primary/90'
+              }`}
+            >
+              {isFollowing ? <UserCheck className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+              {isFollowing ? 'Seguindo' : 'Seguir'}
+            </button>
+            <Link
+              to={`/membro/${encodeURIComponent(userEmail)}`}
+              onClick={onClose}
+              className="flex-1 py-2.5 rounded-xl bg-muted text-sm font-medium hover:bg-accent transition-colors flex items-center justify-center gap-1.5"
+            >
+              <User className="w-4 h-4" /> Perfil
+            </Link>
+            {onStartChat && (
+              <button
+                onClick={() => { onStartChat(userEmail); onClose(); }}
+                className="flex-1 py-2.5 rounded-xl bg-muted text-sm font-medium hover:bg-accent transition-colors"
+              >
+                Mensagem
+              </button>
+            )}
+          </div>
         )}
       </div>
     </ProfileModal>

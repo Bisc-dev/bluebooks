@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
-import { Edit2, Check, X, BookOpen, Camera, Shield, FileText } from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
+import { Edit2, Check, X, BookOpen, Camera, Shield, FileText, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +13,7 @@ import ReputationBar from '@/components/profile/ReputationBar';
 import ProfileTags from '@/components/profile/ProfileTags';
 import ImageUploader from '@/components/profile/ImageUploader';
 import BlogPostCard from '@/components/community/BlogPostCard';
+import UserProfile from '@/pages/UserProfile';
 
 async function uploadFile(file) {
   const ext = file.name.split('.').pop();
@@ -27,6 +29,7 @@ export default function Profile() {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({});
+  const [viewingUser, setViewingUser] = useState(null);
 
   const { data: user, isLoading: loadingUser } = useQuery({
     queryKey: ['me', authUser?.email],
@@ -61,6 +64,44 @@ export default function Profile() {
         .order('created_date', { ascending: false });
       if (error) throw error;
       return data;
+    },
+    enabled: !!user?.email,
+  });
+
+  const { data: followers = [] } = useQuery({
+    queryKey: ['followers', user?.email],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('follows')
+        .select('follower_email')
+        .eq('following_email', user.email);
+      if (error) throw error;
+      if (!data?.length) return [];
+      const emails = data.map(f => f.follower_email);
+      const { data: users } = await supabase
+        .from('users')
+        .select('email, username, full_name, avatar_url')
+        .in('email', emails);
+      return users || [];
+    },
+    enabled: !!user?.email,
+  });
+
+  const { data: following = [] } = useQuery({
+    queryKey: ['following', user?.email],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('follows')
+        .select('following_email')
+        .eq('follower_email', user.email);
+      if (error) throw error;
+      if (!data?.length) return [];
+      const emails = data.map(f => f.following_email);
+      const { data: users } = await supabase
+        .from('users')
+        .select('email, username, full_name, avatar_url')
+        .in('email', emails);
+      return users || [];
     },
     enabled: !!user?.email,
   });
@@ -255,6 +296,14 @@ export default function Profile() {
             <FileText className="w-4 h-4" />
             <span>{userPosts.length} postagens</span>
           </div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Users className="w-4 h-4" />
+            <span>{followers.length} seguidores</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Users className="w-4 h-4" />
+            <span>{following.length} seguindo</span>
+          </div>
         </div>
 
         {/* Reputation */}
@@ -287,6 +336,58 @@ export default function Profile() {
           </div>
         </section>
       )}
+
+      {/* Followers section */}
+      {followers.length > 0 && (
+        <section>
+          <h2 className="font-heading text-xl font-bold mb-4">Seguidores ({followers.length})</h2>
+          <div className="flex flex-wrap gap-2">
+            {followers.map(u => (
+              <button
+                key={u.email}
+                onClick={() => setViewingUser(u.email)}
+                className="flex items-center gap-2 bg-card/60 border border-border/30 rounded-xl px-3 py-2 hover:bg-accent/50 transition-colors"
+              >
+                <div className="w-8 h-8 rounded-full overflow-hidden bg-primary/20 flex-shrink-0">
+                  {u.avatar_url
+                    ? <img src={u.avatar_url} alt="" className="w-full h-full object-cover" />
+                    : <div className="w-full h-full flex items-center justify-center text-xs font-bold text-primary">{(u.username || u.full_name || 'U')[0].toUpperCase()}</div>
+                  }
+                </div>
+                <span className="text-sm font-medium">{u.username || u.full_name}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Following section */}
+      {following.length > 0 && (
+        <section>
+          <h2 className="font-heading text-xl font-bold mb-4">Seguindo ({following.length})</h2>
+          <div className="flex flex-wrap gap-2">
+            {following.map(u => (
+              <button
+                key={u.email}
+                onClick={() => setViewingUser(u.email)}
+                className="flex items-center gap-2 bg-card/60 border border-border/30 rounded-xl px-3 py-2 hover:bg-accent/50 transition-colors"
+              >
+                <div className="w-8 h-8 rounded-full overflow-hidden bg-primary/20 flex-shrink-0">
+                  {u.avatar_url
+                    ? <img src={u.avatar_url} alt="" className="w-full h-full object-cover" />
+                    : <div className="w-full h-full flex items-center justify-center text-xs font-bold text-primary">{(u.username || u.full_name || 'U')[0].toUpperCase()}</div>
+                  }
+                </div>
+                <span className="text-sm font-medium">{u.username || u.full_name}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <AnimatePresence>
+        {viewingUser && <UserProfile userEmail={viewingUser} onClose={() => setViewingUser(null)} onStartChat={undefined} />}
+      </AnimatePresence>
     </div>
   );
 }
