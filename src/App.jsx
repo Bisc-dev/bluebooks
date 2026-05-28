@@ -1,12 +1,13 @@
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 
 import Layout from './components/Layout';
+import GuestLayout from './components/GuestLayout';
 import Dashboard from './pages/Dashboard';
 import Library from './pages/Library';
 import BookDetail from './pages/BookDetail';
@@ -22,6 +23,7 @@ import Login from './pages/Login';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError } = useAuth();
+  const location = useLocation();
 
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
@@ -38,7 +40,14 @@ const AuthenticatedApp = () => {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     } else if (authError.type === 'auth_required') {
-      return <Navigate to="/login" replace />;
+      if (location.pathname === '/') {
+        return (
+          <GuestLayout>
+            <Dashboard />
+          </GuestLayout>
+        );
+      }
+      return <Navigate to="/login" state={{ from: location.pathname, authRequired: true }} replace />;
     }
   }
 

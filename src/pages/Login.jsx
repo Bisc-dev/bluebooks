@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, LogIn } from 'lucide-react';
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from || '/';
+  const authRequired = location.state?.authRequired || false;
   const [mode, setMode] = useState('login');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -31,7 +34,7 @@ export default function Login() {
     if (error) {
       setError('Email ou senha inválidos.');
     } else {
-      navigate('/', { replace: true });
+      navigate(from, { replace: true });
     }
     setLoading(false);
   };
@@ -71,7 +74,7 @@ export default function Login() {
     setError('');
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: `${window.location.origin}${from}` },
     });
     if (error) {
       setError(error.message);
@@ -95,6 +98,15 @@ export default function Login() {
             {mode === 'login' ? 'Entre para acessar sua conta' : 'Crie sua conta gratuitamente'}
           </p>
         </div>
+
+        {authRequired && (
+          <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-primary/10 border border-primary/20">
+            <LogIn className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-primary font-medium">
+              Faça login para continuar{from !== '/' ? ' e acessar a página solicitada' : ''}.
+            </p>
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="flex rounded-xl bg-muted p-1 gap-1">

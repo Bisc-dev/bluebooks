@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { BookOpen, MessageCircle, Users, Tv, User, LayoutDashboard, LogOut } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { BookOpen, MessageCircle, Users, Tv, User, LayoutDashboard, LogOut, Download, Smartphone, Bell, Zap } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/lib/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -32,8 +32,42 @@ export default function Layout() {
   const location = useLocation();
   const { user, logout } = useAuth();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [showInstallModal, setShowInstallModal] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState(() => window.__installPrompt || null);
+  const isInstalled = window.matchMedia('(display-mode: standalone)').matches;
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
   usePushNotifications(user?.email);
+
+  // Show install modal once after login, if app is not installed
+  useEffect(() => {
+    if (!user?.email || isInstalled) return;
+    const shown = localStorage.getItem('install_modal_shown');
+    if (shown) return;
+    if (window.__installPrompt) setInstallPrompt(window.__installPrompt);
+    const timer = setTimeout(() => setShowInstallModal(true), 2000);
+    return () => clearTimeout(timer);
+  }, [user?.email]);
+
+  const handleInstallNow = async () => {
+    if (isIOS) {
+      // Can't programmatically install on iOS, just close
+      setShowInstallModal(false);
+      localStorage.setItem('install_modal_shown', '1');
+      return;
+    }
+    if (!installPrompt) return;
+    await installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') window.__installPrompt = null;
+    setShowInstallModal(false);
+    localStorage.setItem('install_modal_shown', '1');
+  };
+
+  const handleDismissInstall = () => {
+    setShowInstallModal(false);
+    localStorage.setItem('install_modal_shown', '1');
+  };
 
   const { data: hasUnread = false } = useQuery({
     queryKey: ['has-unread', user?.email],
@@ -218,6 +252,62 @@ export default function Layout() {
           })}
         </div>
       </nav>
+      {/* Install app modal */}
+      <AnimatePresence>
+        {showInstallModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[300] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={handleDismissInstall}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 40, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.97 }}
+              transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+              className="w-full max-w-sm bg-card rounded-2xl overflow-hidden shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="bg-gradient-to-br from-primary/20 via-primary/5 to-transparent p-6 text-center border-b border-border/30">
+                <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg shadow-primary/30 mb-4">
+                  <BookOpen className="w-8 h-8 text-primary-foreground" />
+                </div>
+                <h2 className="font-heading text-xl font-bold">Instale o BlueBooks</h2>
+                <p className="text-sm text-muted-foreground mt-1">Tenha a melhor experiência de leitura</p>
+              </div>
+              <div className="p-5 space-y-3">
+                {[
+                  { icon: Smartphone, text: 'Acesso rápido direto pela tela inicial' },
+                  { icon: Bell, text: 'Notificações de curtidas, comentários e seguidores' },
+                  { icon: Zap, text: 'Mais rápido e fluido, sem barra do navegador' },
+                ].map(({ icon: Icon, text }) => (
+                  <div key={text} className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <Icon className="w-4 h-4 text-primary" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">{text}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="px-5 pb-5 flex flex-col gap-2">
+                {(installPrompt || isIOS) ? (
+                  <Button onClick={handleInstallNow} className="w-full rounded-xl gap-2 bg-primary">
+                    <Download className="w-4 h-4" /> Instalar agora
+                  </Button>
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center">Use o menu do navegador para adicionar à tela inicial.</p>
+                )}
+                <Button variant="ghost" onClick={handleDismissInstall} className="w-full rounded-xl text-muted-foreground">
+                  Talvez depois
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <Dialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
