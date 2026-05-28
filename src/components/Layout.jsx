@@ -33,39 +33,47 @@ export default function Layout() {
   const { user, logout } = useAuth();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showInstallModal, setShowInstallModal] = useState(false);
+  const [showInstallInstructions, setShowInstallInstructions] = useState(false);
   const [installPrompt, setInstallPrompt] = useState(() => window.__installPrompt || null);
   const isInstalled = window.matchMedia('(display-mode: standalone)').matches;
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
   usePushNotifications(user?.email);
 
+  // Capture prompt if it fires after mount
+  useEffect(() => {
+    const handler = (e) => { e.preventDefault(); setInstallPrompt(e); window.__installPrompt = e; };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
   // Show install modal once after login, if app is not installed
   useEffect(() => {
     if (!user?.email || isInstalled) return;
     const shown = localStorage.getItem('install_modal_shown');
     if (shown) return;
-    if (window.__installPrompt) setInstallPrompt(window.__installPrompt);
     const timer = setTimeout(() => setShowInstallModal(true), 2000);
     return () => clearTimeout(timer);
   }, [user?.email]);
 
   const handleInstallNow = async () => {
-    if (isIOS) {
-      // Can't programmatically install on iOS, just close
-      setShowInstallModal(false);
-      localStorage.setItem('install_modal_shown', '1');
+    if (installPrompt) {
+      await installPrompt.prompt();
+      const { outcome } = await installPrompt.userChoice;
+      if (outcome === 'accepted') {
+        window.__installPrompt = null;
+        setShowInstallModal(false);
+        localStorage.setItem('install_modal_shown', '1');
+      }
       return;
     }
-    if (!installPrompt) return;
-    await installPrompt.prompt();
-    const { outcome } = await installPrompt.userChoice;
-    if (outcome === 'accepted') window.__installPrompt = null;
-    setShowInstallModal(false);
-    localStorage.setItem('install_modal_shown', '1');
+    // No native prompt — show manual instructions
+    setShowInstallInstructions(true);
   };
 
   const handleDismissInstall = () => {
     setShowInstallModal(false);
+    setShowInstallInstructions(false);
     localStorage.setItem('install_modal_shown', '1');
   };
 
@@ -292,13 +300,39 @@ export default function Layout() {
                 ))}
               </div>
               <div className="px-5 pb-5 flex flex-col gap-2">
-                {(installPrompt || isIOS) ? (
-                  <Button onClick={handleInstallNow} className="w-full rounded-xl gap-2 bg-primary">
-                    <Download className="w-4 h-4" /> Instalar agora
-                  </Button>
-                ) : (
-                  <p className="text-xs text-muted-foreground text-center">Use o menu do navegador para adicionar à tela inicial.</p>
-                )}
+                <AnimatePresence mode="wait">
+                  {showInstallInstructions ? (
+                    <motion.div
+                      key="instructions"
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="bg-muted/50 rounded-xl p-4 space-y-2 text-sm text-muted-foreground overflow-hidden"
+                    >
+                      {isIOS ? (
+                        <>
+                          <p className="font-medium text-foreground text-xs uppercase tracking-wide mb-2">Como instalar no iPhone/iPad</p>
+                          <p>1. Toque em <strong className="text-foreground">Compartilhar</strong> <span className="font-mono">⎙</span> na barra do Safari</p>
+                          <p>2. Role e toque em <strong className="text-foreground">"Adicionar à Tela Inicial"</strong></p>
+                          <p>3. Confirme tocando em <strong className="text-foreground">"Adicionar"</strong></p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="font-medium text-foreground text-xs uppercase tracking-wide mb-2">Como instalar no Android</p>
+                          <p>1. Toque nos <strong className="text-foreground">três pontos ⋮</strong> no canto superior do Chrome</p>
+                          <p>2. Selecione <strong className="text-foreground">"Adicionar à tela inicial"</strong></p>
+                          <p>3. Confirme tocando em <strong className="text-foreground">"Adicionar"</strong></p>
+                        </>
+                      )}
+                    </motion.div>
+                  ) : (
+                    <motion.div key="button" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                      <Button onClick={handleInstallNow} className="w-full rounded-xl gap-2 bg-primary">
+                        <Download className="w-4 h-4" /> Instalar agora
+                      </Button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
                 <Button variant="ghost" onClick={handleDismissInstall} className="w-full rounded-xl text-muted-foreground">
                   Talvez depois
                 </Button>

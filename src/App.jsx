@@ -7,7 +7,7 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 
 import Layout from './components/Layout';
-import GuestLayout from './components/GuestLayout';
+import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
 import Library from './pages/Library';
 import BookDetail from './pages/BookDetail';
@@ -40,14 +40,9 @@ const AuthenticatedApp = () => {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     } else if (authError.type === 'auth_required') {
-      if (location.pathname === '/') {
-        return (
-          <GuestLayout>
-            <Dashboard />
-          </GuestLayout>
-        );
-      }
-      return <Navigate to="/login" state={{ from: location.pathname, authRequired: true }} replace />;
+      return location.pathname === '/'
+        ? <Landing />
+        : <Navigate to="/login" state={{ from: location.pathname, authRequired: true }} replace />;
     }
   }
 
