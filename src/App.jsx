@@ -20,6 +20,7 @@ import Profile from './pages/Profile.jsx';
 import MemberProfile from './pages/MemberProfile.jsx';
 import Admin from './pages/Admin';
 import Login from './pages/Login';
+import AuthCallback from './pages/AuthCallback';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError } = useAuth();
@@ -72,6 +73,8 @@ function App() {
         <Router>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/auth/confirm" element={<AuthCallback />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/*" element={<AuthenticatedApp />} />
           </Routes>
         </Router>
