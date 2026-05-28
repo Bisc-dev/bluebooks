@@ -35,10 +35,27 @@ export default function AuthCallback() {
           const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
           if (error) throw error;
         } else {
-          // Let Supabase try to detect from URL automatically
-          const { data: { session }, error } = await supabase.auth.getSession();
-          if (error) throw error;
-          if (!session) throw new Error('Nenhuma sessão encontrada.');
+          // OAuth PKCE redirect — Supabase client auto-exchanges the ?code in the URL
+          // asynchronously; wait for it to settle instead of calling getSession() too early
+          await new Promise((resolve, reject) => {
+            const timeout = setTimeout(
+              () => reject(new Error('Tempo limite de autenticação. Tente fazer login novamente.')),
+              15000
+            );
+
+            supabase.auth.getSession().then(({ data: { session }, error }) => {
+              if (error) { clearTimeout(timeout); reject(error); return; }
+              if (session) { clearTimeout(timeout); resolve(); return; }
+
+              const { data: { subscription } } = supabase.auth.onAuthStateChange((event, sess) => {
+                if (event === 'SIGNED_IN' && sess) {
+                  clearTimeout(timeout);
+                  subscription.unsubscribe();
+                  resolve();
+                }
+              });
+            });
+          });
         }
 
         setStatus('success');

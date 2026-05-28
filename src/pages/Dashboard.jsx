@@ -82,7 +82,7 @@ export default function Dashboard() {
             <Sparkles className="w-5 h-5 text-primary" />
             <span className="text-sm font-medium text-primary">Bem-vindo(a) à BlueBooks</span>
           </div>
-          <h1 className="font-heading text-3xl md:text-5xl font-bold mb-3 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+          <h1 className="font-heading text-3xl md:text-5xl font-bold mb-3 pb-1 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
             Seu refúgio literário
           </h1>
           <p className="text-muted-foreground max-w-lg text-sm md:text-base">
