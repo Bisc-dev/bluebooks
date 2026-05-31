@@ -1,7 +1,7 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { X, Save, Image, Hash, Bold, Italic, List, AlignLeft, Minus, ImagePlus } from 'lucide-react';
+import { X, Save, Image, Hash, Bold, Italic, List, AlignLeft, Minus, ImagePlus, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 async function uploadFile(file) {
@@ -23,8 +23,8 @@ export default function BlogEditor({ post, onSave, onCancel, isLoading }) {
   const [isDragging, setIsDragging] = useState(false);
   const editorRef = useRef(null);
   const coverInputRef = useRef(null);
+  const savedRangeRef = useRef(null);
   const [editorInitialized, setEditorInitialized] = useState(false);
-  const savedSelectionRef = useRef(null);
 
   const initEditor = (el) => {
     if (el && !editorInitialized) {
@@ -34,19 +34,31 @@ export default function BlogEditor({ post, onSave, onCancel, isLoading }) {
     }
   };
 
+  // Called on editor blur — this is the reliable moment to capture cursor on mobile
   const saveSelection = () => {
     const sel = window.getSelection();
-    if (sel && sel.rangeCount > 0) {
-      savedSelectionRef.current = sel.getRangeAt(0).cloneRange();
+    if (sel && sel.rangeCount > 0 && editorRef.current?.contains(sel.anchorNode)) {
+      savedRangeRef.current = sel.getRangeAt(0).cloneRange();
     }
   };
 
-  const restoreSelection = () => {
+  const restoreOrFallbackToEnd = () => {
     const sel = window.getSelection();
-    if (savedSelectionRef.current && sel) {
-      sel.removeAllRanges();
-      sel.addRange(savedSelectionRef.current);
+    if (!sel || !editorRef.current) return;
+    sel.removeAllRanges();
+    if (savedRangeRef.current) {
+      try {
+        sel.addRange(savedRangeRef.current);
+        return;
+      } catch {
+        // range may be detached after DOM mutations — fall through to end
+      }
     }
+    // Fallback: place cursor at end of editor
+    const range = document.createRange();
+    range.selectNodeContents(editorRef.current);
+    range.collapse(false);
+    sel.addRange(range);
   };
 
   const exec = (cmd, value = null) => {
@@ -62,14 +74,15 @@ export default function BlogEditor({ post, onSave, onCancel, isLoading }) {
     if (!file || !file.type.startsWith('image/')) return;
     setUploadingImage(true);
 
-    // Insert a temporary placeholder so the user sees feedback immediately
     const placeholderId = `imgload-${Date.now()}`;
     editorRef.current?.focus();
-    if (savedSelectionRef.current) restoreSelection();
+    restoreOrFallbackToEnd();
     exec(
       'insertHTML',
       `<div id="${placeholderId}" contenteditable="false" style="background:rgba(100,100,255,0.08);border:2px dashed rgba(100,100,255,0.3);border-radius:12px;padding:20px 16px;text-align:center;margin:10px 0;color:rgba(150,150,255,0.8);font-size:13px;user-select:none;">📤 Enviando imagem...</div><br>`
     );
+    // Clear saved range so a subsequent insert doesn't re-use the now-stale position
+    savedRangeRef.current = null;
 
     try {
       const url = await uploadFile(file);
@@ -79,26 +92,26 @@ export default function BlogEditor({ post, onSave, onCancel, isLoading }) {
       }
     } catch {
       const placeholder = editorRef.current?.querySelector(`#${placeholderId}`);
-      if (placeholder) {
-        placeholder.outerHTML = `<span style="color:red;font-size:12px;">Falha ao enviar imagem</span>`;
-      }
+      if (placeholder) placeholder.outerHTML = `<span style="color:#f87171;font-size:12px;">Falha ao enviar imagem.</span>`;
     } finally {
       setUploadingImage(false);
     }
   };
 
-  const handlePaste = useCallback(async (e) => {
+  const handlePaste = async (e) => {
     const items = e.clipboardData?.items;
     if (!items) return;
     for (const item of items) {
       if (item.type.startsWith('image/')) {
         e.preventDefault();
+        // On paste, the selection is still alive in the editor — save it now
+        saveSelection();
         const file = item.getAsFile();
         if (file) await insertImageAtCursor(file);
         return;
       }
     }
-  }, []);
+  };
 
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -112,6 +125,7 @@ export default function BlogEditor({ post, onSave, onCancel, isLoading }) {
   const handleDrop = async (e) => {
     e.preventDefault();
     setIsDragging(false);
+    saveSelection();
     const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
     for (const file of files) await insertImageAtCursor(file);
   };
@@ -196,11 +210,20 @@ export default function BlogEditor({ post, onSave, onCancel, isLoading }) {
 
       {/* Editor */}
       <div
-        className={`rounded-xl border overflow-hidden bg-background/50 transition-all ${isDragging ? 'border-primary border-2 shadow-[0_0_0_3px_rgba(var(--primary)/0.2)]' : 'border-border/50'}`}
+        className={`relative rounded-xl border overflow-hidden bg-background/50 transition-all ${isDragging ? 'border-primary border-2' : 'border-border/50'}`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
+        {/* Upload loading overlay */}
+        {uploadingImage && (
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-background/75 backdrop-blur-sm rounded-xl">
+            <Loader2 className="w-8 h-8 text-primary animate-spin" />
+            <p className="text-sm font-medium text-foreground">Inserindo imagem...</p>
+            <p className="text-xs text-muted-foreground">Aguarde um momento</p>
+          </div>
+        )}
+
         {/* Toolbar */}
         <div className="flex items-center gap-1 px-3 py-2 border-b border-border/30 bg-muted/30 flex-wrap">
           {['H1', 'H2', 'H3'].map((h, i) => (
@@ -225,17 +248,16 @@ export default function BlogEditor({ post, onSave, onCancel, isLoading }) {
             </button>
           ))}
           <div className="w-px h-4 bg-border/50 mx-1" />
-          {/* Image insert button — saves cursor position before file dialog opens */}
+          {/* Image button — selection is saved via onBlur on the editor before this fires */}
           <label
             title="Inserir imagem no texto"
-            onMouseDown={saveSelection}
             className={`flex items-center gap-1.5 px-2 py-1.5 rounded text-xs font-medium transition-colors cursor-pointer
               ${uploadingImage
                 ? 'opacity-50 pointer-events-none text-muted-foreground'
                 : 'bg-primary/10 text-primary hover:bg-primary/20'}`}
           >
             <ImagePlus className="w-4 h-4" />
-            {uploadingImage ? 'Enviando...' : 'Inserir imagem'}
+            Inserir imagem
             <input
               type="file"
               accept="image/*,image/gif"
@@ -253,7 +275,7 @@ export default function BlogEditor({ post, onSave, onCancel, isLoading }) {
           </div>
         )}
 
-        {/* Contenteditable area */}
+        {/* Contenteditable area — onBlur saves cursor so toolbar buttons can restore it */}
         <div
           ref={initEditor}
           contentEditable
@@ -261,6 +283,7 @@ export default function BlogEditor({ post, onSave, onCancel, isLoading }) {
           data-placeholder="Escreva seu blog aqui... Cole imagens com Ctrl+V ou arraste para inserir no meio do texto!"
           className="min-h-[260px] p-4 text-sm leading-relaxed outline-none focus:outline-none prose prose-sm dark:prose-invert max-w-none blog-editor-content"
           style={{ wordBreak: 'break-word' }}
+          onBlur={saveSelection}
           onKeyDown={e => {
             if (e.key === 'Tab') { e.preventDefault(); exec('insertHTML', '&nbsp;&nbsp;&nbsp;&nbsp;'); }
           }}
