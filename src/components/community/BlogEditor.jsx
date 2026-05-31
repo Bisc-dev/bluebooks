@@ -1,7 +1,7 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { X, Save, Image, Hash, Bold, Italic, List, AlignLeft, Minus } from 'lucide-react';
+import { X, Save, Image, Hash, Bold, Italic, List, AlignLeft, Minus, ImagePlus } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 async function uploadFile(file) {
@@ -19,17 +19,33 @@ export default function BlogEditor({ post, onSave, onCancel, isLoading }) {
   const [hashtagInput, setHashtagInput] = useState('');
   const [hashtags, setHashtags] = useState(post?.hashtags || []);
   const [uploadingCover, setUploadingCover] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const editorRef = useRef(null);
   const coverInputRef = useRef(null);
   const [editorInitialized, setEditorInitialized] = useState(false);
+  const savedSelectionRef = useRef(null);
 
   const initEditor = (el) => {
     if (el && !editorInitialized) {
       editorRef.current = el;
-      if (post?.content) {
-        el.innerHTML = post.content;
-      }
+      if (post?.content) el.innerHTML = post.content;
       setEditorInitialized(true);
+    }
+  };
+
+  const saveSelection = () => {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      savedSelectionRef.current = sel.getRangeAt(0).cloneRange();
+    }
+  };
+
+  const restoreSelection = () => {
+    const sel = window.getSelection();
+    if (savedSelectionRef.current && sel) {
+      sel.removeAllRanges();
+      sel.addRange(savedSelectionRef.current);
     }
   };
 
@@ -42,10 +58,62 @@ export default function BlogEditor({ post, onSave, onCancel, isLoading }) {
     exec('insertHTML', '<hr style="border:none;border-top:1px solid #444;margin:16px 0;"><br>');
   };
 
-  const insertImage = async (file) => {
+  const insertImageAtCursor = async (file) => {
     if (!file || !file.type.startsWith('image/')) return;
-    const url = await uploadFile(file);
-    exec('insertHTML', `<img src="${url}" style="max-width:100%;border-radius:12px;margin:8px 0;" /><br>`);
+    setUploadingImage(true);
+
+    // Insert a temporary placeholder so the user sees feedback immediately
+    const placeholderId = `imgload-${Date.now()}`;
+    editorRef.current?.focus();
+    if (savedSelectionRef.current) restoreSelection();
+    exec(
+      'insertHTML',
+      `<div id="${placeholderId}" contenteditable="false" style="background:rgba(100,100,255,0.08);border:2px dashed rgba(100,100,255,0.3);border-radius:12px;padding:20px 16px;text-align:center;margin:10px 0;color:rgba(150,150,255,0.8);font-size:13px;user-select:none;">📤 Enviando imagem...</div><br>`
+    );
+
+    try {
+      const url = await uploadFile(file);
+      const placeholder = editorRef.current?.querySelector(`#${placeholderId}`);
+      if (placeholder) {
+        placeholder.outerHTML = `<img src="${url}" style="max-width:100%;border-radius:12px;margin:10px 0;display:block;" />`;
+      }
+    } catch {
+      const placeholder = editorRef.current?.querySelector(`#${placeholderId}`);
+      if (placeholder) {
+        placeholder.outerHTML = `<span style="color:red;font-size:12px;">Falha ao enviar imagem</span>`;
+      }
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handlePaste = useCallback(async (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) await insertImageAtCursor(file);
+        return;
+      }
+    }
+  }, []);
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    if (!e.currentTarget.contains(e.relatedTarget)) setIsDragging(false);
+  };
+
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+    for (const file of files) await insertImageAtCursor(file);
   };
 
   const addHashtag = () => {
@@ -127,7 +195,12 @@ export default function BlogEditor({ post, onSave, onCancel, isLoading }) {
       </div>
 
       {/* Editor */}
-      <div className="rounded-xl border border-border/50 overflow-hidden bg-background/50">
+      <div
+        className={`rounded-xl border overflow-hidden bg-background/50 transition-all ${isDragging ? 'border-primary border-2 shadow-[0_0_0_3px_rgba(var(--primary)/0.2)]' : 'border-border/50'}`}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
         {/* Toolbar */}
         <div className="flex items-center gap-1 px-3 py-2 border-b border-border/30 bg-muted/30 flex-wrap">
           {['H1', 'H2', 'H3'].map((h, i) => (
@@ -152,24 +225,53 @@ export default function BlogEditor({ post, onSave, onCancel, isLoading }) {
             </button>
           ))}
           <div className="w-px h-4 bg-border/50 mx-1" />
-          <label title="Inserir imagem" className="p-1.5 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground cursor-pointer">
-            <Image className="w-4 h-4" />
-            <input type="file" accept="image/*,image/gif" className="hidden" onChange={e => { insertImage(e.target.files?.[0]); e.target.value = ''; }} />
+          {/* Image insert button — saves cursor position before file dialog opens */}
+          <label
+            title="Inserir imagem no texto"
+            onMouseDown={saveSelection}
+            className={`flex items-center gap-1.5 px-2 py-1.5 rounded text-xs font-medium transition-colors cursor-pointer
+              ${uploadingImage
+                ? 'opacity-50 pointer-events-none text-muted-foreground'
+                : 'bg-primary/10 text-primary hover:bg-primary/20'}`}
+          >
+            <ImagePlus className="w-4 h-4" />
+            {uploadingImage ? 'Enviando...' : 'Inserir imagem'}
+            <input
+              type="file"
+              accept="image/*,image/gif"
+              className="hidden"
+              onChange={e => { insertImageAtCursor(e.target.files?.[0]); e.target.value = ''; }}
+            />
           </label>
         </div>
+
+        {/* Drop overlay */}
+        {isDragging && (
+          <div className="flex items-center justify-center gap-2 py-6 bg-primary/5 text-primary text-sm font-medium border-b border-primary/20">
+            <ImagePlus className="w-5 h-5" />
+            Solte a imagem aqui para inserir no texto
+          </div>
+        )}
 
         {/* Contenteditable area */}
         <div
           ref={initEditor}
           contentEditable
           suppressContentEditableWarning
-          data-placeholder="Escreva seu blog aqui... Use a barra acima para formatar o texto, adicionar imagens e muito mais!"
-          className="min-h-[220px] p-4 text-sm leading-relaxed outline-none focus:outline-none prose prose-sm dark:prose-invert max-w-none blog-editor-content"
+          data-placeholder="Escreva seu blog aqui... Cole imagens com Ctrl+V ou arraste para inserir no meio do texto!"
+          className="min-h-[260px] p-4 text-sm leading-relaxed outline-none focus:outline-none prose prose-sm dark:prose-invert max-w-none blog-editor-content"
           style={{ wordBreak: 'break-word' }}
           onKeyDown={e => {
             if (e.key === 'Tab') { e.preventDefault(); exec('insertHTML', '&nbsp;&nbsp;&nbsp;&nbsp;'); }
           }}
+          onPaste={handlePaste}
         />
+
+        {/* Bottom hint */}
+        <div className="px-4 pb-3 pt-1 flex items-center gap-1.5 text-xs text-muted-foreground/40">
+          <ImagePlus className="w-3 h-3" />
+          Cole imagens (Ctrl+V) ou arraste e solte para inserir no texto
+        </div>
       </div>
 
       {/* Hashtags */}
