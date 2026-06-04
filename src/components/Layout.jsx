@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { BookOpen, MessageCircle, Users, Tv, User, LayoutDashboard, LogOut, Download, Smartphone, Bell, Zap } from 'lucide-react';
+import { BookOpen, Users, Tv, User, LayoutDashboard, LogOut, Download, Smartphone, Bell, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/lib/AuthContext';
@@ -23,7 +23,6 @@ const navItems = [
   { path: '/', icon: LayoutDashboard, label: 'Painel', mobileLabel: 'Painel' },
   { path: '/livraria', icon: BookOpen, label: 'Livraria', mobileLabel: 'Livraria' },
   { path: '/comunidade', icon: Users, label: 'Comunidade', mobileLabel: 'Comunidade' },
-  { path: '/chats', icon: MessageCircle, label: 'Chats', mobileLabel: 'Chats' },
   { path: '/assistir', icon: Tv, label: 'CineBlue', mobileLabel: 'CineBlue' },
   { path: '/perfil', icon: User, label: 'Perfil', mobileLabel: 'Perfil' },
 ];
@@ -76,63 +75,6 @@ export default function Layout() {
     setShowInstallInstructions(false);
     localStorage.setItem('install_modal_shown', '1');
   };
-
-  const { data: hasUnread = false } = useQuery({
-    queryKey: ['has-unread', user?.email],
-    queryFn: async () => {
-      const email = user?.email;
-      if (!email) return false;
-
-      const dmLastRead = JSON.parse(localStorage.getItem('dm_last_read') || '{}');
-      const groupLastRead = JSON.parse(localStorage.getItem('group_last_read') || '{}');
-
-      // Check DMs
-      const { data: dms } = await supabase
-        .from('direct_messages')
-        .select('conversation_id, created_by, created_date')
-        .ilike('conversation_id', `%${email}%`)
-        .neq('created_by', email)
-        .order('created_date', { ascending: false })
-        .limit(50);
-
-      const seenDm = new Set();
-      for (const msg of dms || []) {
-        if (seenDm.has(msg.conversation_id)) continue;
-        seenDm.add(msg.conversation_id);
-        const readAt = dmLastRead[msg.conversation_id];
-        if (!readAt || new Date(msg.created_date) > new Date(readAt)) return true;
-      }
-
-      // Check groups the user is a member of
-      const { data: myGroups } = await supabase
-        .from('chat_groups')
-        .select('id')
-        .contains('members', [email]);
-
-      if (myGroups && myGroups.length > 0) {
-        const { data: groupMsgs } = await supabase
-          .from('chat_messages')
-          .select('group_id, created_by, created_date')
-          .in('group_id', myGroups.map(g => g.id))
-          .neq('created_by', email)
-          .order('created_date', { ascending: false })
-          .limit(50);
-
-        const seenGroup = new Set();
-        for (const msg of groupMsgs || []) {
-          if (seenGroup.has(msg.group_id)) continue;
-          seenGroup.add(msg.group_id);
-          const readAt = groupLastRead[msg.group_id];
-          if (!readAt || new Date(msg.created_date) > new Date(readAt)) return true;
-        }
-      }
-
-      return false;
-    },
-    enabled: !!user?.email,
-    refetchInterval: 15_000,
-    staleTime: 0,
-  });
 
   useEffect(() => {
     const email = user?.email;
@@ -194,9 +136,6 @@ export default function Layout() {
                   >
                     <div className="relative">
                       <item.icon className="w-4 h-4" />
-                      {item.path === '/chats' && hasUnread && (
-                        <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500 border border-background" />
-                      )}
                     </div>
                     <span className="hidden lg:inline">{item.label}</span>
                   </motion.div>
@@ -241,9 +180,6 @@ export default function Layout() {
                 >
                   <div className="relative">
                     <item.icon className="w-5 h-5 flex-shrink-0" />
-                    {item.path === '/chats' && hasUnread && (
-                      <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-red-500 border-2 border-background" />
-                    )}
                   </div>
                   <span className="text-[9px] font-medium leading-tight text-center w-full truncate px-0.5">
                     {item.mobileLabel}

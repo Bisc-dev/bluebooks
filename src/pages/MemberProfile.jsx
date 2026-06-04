@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { pushNotify } from '@/lib/pushNotify';
 import { useAuth } from '@/lib/AuthContext';
 import { AnimatePresence } from 'framer-motion';
-import { ArrowLeft, BookOpen, FileText, UserPlus, UserCheck, MessageCircle } from 'lucide-react';
+import { ArrowLeft, BookOpen, FileText, UserPlus, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import BookCard from '@/components/library/BookCard';
 import ReputationBar from '@/components/profile/ReputationBar';
@@ -226,11 +226,6 @@ export default function MemberProfile() {
               {isFollowing ? <UserCheck className="w-3.5 h-3.5" /> : <UserPlus className="w-3.5 h-3.5" />}
               {isFollowing ? 'Seguindo' : 'Seguir'}
             </Button>
-            <Link to="/chats">
-              <Button size="sm" variant="outline" className="gap-1.5 rounded-xl bg-background/80 backdrop-blur-sm">
-                <MessageCircle className="w-3.5 h-3.5" /> Mensagem
-              </Button>
-            </Link>
           </div>
         )}
 

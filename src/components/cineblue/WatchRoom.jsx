@@ -12,7 +12,6 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import RoomChat from './RoomChat';
 
 function getYoutubeId(url) {
   const match = url?.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]+)/);
@@ -319,17 +318,6 @@ export default function WatchRoom({ initialRoom, user, onLeave, onViewProfile })
           {participants.filter(e => !allUsers.find(u => u.email === e)).map(email => (
             <div key={email} className="w-8 h-8 rounded-full bg-muted/30 border-2 border-white/20 flex items-center justify-center text-xs text-white/50 flex-shrink-0">?</div>
           ))}
-        </div>
-      </div>
-
-      {/* Chat side */}
-      <div className="w-full lg:w-72 flex-shrink-0 border-t lg:border-t-0 lg:border-l border-border/20 flex flex-col max-h-60 lg:max-h-full">
-        <div className="px-3 py-2 border-b border-border/20 flex-shrink-0 flex items-center justify-between">
-          <p className="text-xs font-semibold text-muted-foreground">Chat da sala</p>
-          <span className="text-[10px] text-muted-foreground/60">{participants.length} online</span>
-        </div>
-        <div className="flex-1 min-h-0">
-          <RoomChat room={room} user={user} />
         </div>
       </div>
 

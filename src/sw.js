@@ -16,7 +16,7 @@ self.addEventListener('push', (event) => {
       tag: data.tag || 'bluebooks-msg',
       renotify: true,
       vibrate: [200, 100, 200],
-      data: { url: data.url || '/chats' },
+      data: { url: data.url || '/' },
     })
   );
 });
@@ -27,11 +27,11 @@ self.addEventListener('notificationclick', (event) => {
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
         if (client.url.includes(self.location.origin) && 'focus' in client) {
-          client.navigate(event.notification.data?.url || '/chats');
+          client.navigate(event.notification.data?.url || '/');
           return client.focus();
         }
       }
-      return clients.openWindow(event.notification.data?.url || '/chats');
+      return clients.openWindow(event.notification.data?.url || '/');
     })
   );
 });

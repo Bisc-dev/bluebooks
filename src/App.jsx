@@ -14,7 +14,6 @@ import BookDetail from './pages/BookDetail';
 import Community from './pages/Community';
 import BlogDetail from './pages/BlogDetail.jsx';
 import UserProfile from './pages/UserProfile';
-import Chats from './pages/Chats.jsx';
 import WatchTogether from './pages/WatchTogether.jsx';
 import Profile from './pages/Profile.jsx';
 import MemberProfile from './pages/MemberProfile.jsx';
@@ -55,7 +54,6 @@ const AuthenticatedApp = () => {
         <Route path="/livraria/:id" element={<BookDetail />} />
         <Route path="/comunidade" element={<Community />} />
         <Route path="/comunidade/:id" element={<BlogDetail />} />
-        <Route path="/chats" element={<Chats />} />
         <Route path="/assistir" element={<WatchTogether />} />
         <Route path="/perfil" element={<Profile />} />
         <Route path="/membro/:email" element={<MemberProfile />} />

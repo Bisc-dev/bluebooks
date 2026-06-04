@@ -44,7 +44,7 @@ function ProfileModal({ onClose, children }) {
   );
 }
 
-export default function UserProfile({ userEmail, onClose, onStartChat }) {
+export default function UserProfile({ userEmail, onClose }) {
   const { user: authUser } = useAuth();
   const queryClient = useQueryClient();
 
@@ -319,14 +319,6 @@ export default function UserProfile({ userEmail, onClose, onStartChat }) {
             >
               <User className="w-4 h-4" /> Perfil
             </Link>
-            {onStartChat && (
-              <button
-                onClick={() => { onStartChat(userEmail); onClose(); }}
-                className="flex-1 py-2.5 rounded-xl bg-muted text-sm font-medium hover:bg-accent transition-colors"
-              >
-                Mensagem
-              </button>
-            )}
           </div>
         )}
       </div>
