@@ -26,10 +26,13 @@ const genres = [
   'Horror Cósmico', 'Outros',
 ];
 
-function convertGoogleDriveLink(url) {
-  const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-  if (match) return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w1000`;
-  return url;
+function convertCoverLink(url) {
+  if (!url) return { url: '', error: null };
+  const driveMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (driveMatch) return { url: `https://drive.google.com/thumbnail?id=${driveMatch[1]}&sz=w1000`, error: null };
+  if (/^https?:\/\/pin\.it\//i.test(url))
+    return { url: '', error: 'Links "pin.it" do app do Pinterest não funcionam como imagem. Abra o pin no computador e copie o link da imagem (i.pinimg.com).' };
+  return { url, error: null };
 }
 
 export default function Admin() {
@@ -96,7 +99,7 @@ export default function Admin() {
 function BooksManager({ queryClient }) {
   const [showForm, setShowForm] = useState(false);
   const [editingBook, setEditingBook] = useState(null);
-  const [form, setForm] = useState({ title: '', description: '', cover_url: '', cover_drive_input: '', genre: 'Dark Romance', pdf_link: '', epub_link: '' });
+  const [form, setForm] = useState({ title: '', description: '', cover_url: '', cover_drive_input: '', cover_link_error: null, genre: 'Dark Romance', pdf_link: '', epub_link: '' });
 
   const { data: books = [] } = useQuery({
     queryKey: ['books'],
@@ -117,6 +120,7 @@ function BooksManager({ queryClient }) {
       description: book.description || '',
       cover_url: book.cover_url || '',
       cover_drive_input: '',
+      cover_link_error: null,
       genre: book.genre || 'Dark Romance',
       pdf_link: book.pdf_link || '',
       epub_link: book.epub_link || '',
@@ -126,7 +130,7 @@ function BooksManager({ queryClient }) {
   };
 
   const resetForm = () => {
-    setForm({ title: '', description: '', cover_url: '', cover_drive_input: '', genre: 'Dark Romance', pdf_link: '', epub_link: '' });
+    setForm({ title: '', description: '', cover_url: '', cover_drive_input: '', cover_link_error: null, genre: 'Dark Romance', pdf_link: '', epub_link: '' });
     setEditingBook(null);
     setShowForm(false);
   };
@@ -134,7 +138,7 @@ function BooksManager({ queryClient }) {
   const saveMutation = useMutation({
     mutationFn: async () => {
       // eslint-disable-next-line no-unused-vars
-      const { cover_drive_input, ...bookData } = form;
+      const { cover_drive_input, cover_link_error, ...bookData } = form;
       if (editingBook) {
         const { error } = await supabase.from('books').update(bookData).eq('id', editingBook.id);
         if (error) throw error;
@@ -198,14 +202,18 @@ function BooksManager({ queryClient }) {
               <img src={form.cover_url} alt="Preview" className="w-32 aspect-[2/3] object-cover rounded-xl" />
             )}
             <Input
-              placeholder="Link do Google Drive (ex: https://drive.google.com/file/d/.../view?usp=sharing)"
+              placeholder="Link do Google Drive ou Pinterest (i.pinimg.com)"
               value={form.cover_drive_input ?? ''}
               onChange={e => {
                 const raw = e.target.value;
-                setForm({ ...form, cover_drive_input: raw, cover_url: convertGoogleDriveLink(raw) });
+                const { url, error } = convertCoverLink(raw);
+                setForm({ ...form, cover_drive_input: raw, cover_url: url, cover_link_error: error });
               }}
               className="rounded-xl"
             />
+            {form.cover_link_error && (
+              <p className="text-xs text-destructive">{form.cover_link_error}</p>
+            )}
           </div>
 
           <Input placeholder="Link do PDF (Google Drive)" value={form.pdf_link} onChange={e => setForm({ ...form, pdf_link: e.target.value })} className="rounded-xl" />
