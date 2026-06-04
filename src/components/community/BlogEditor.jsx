@@ -75,13 +75,15 @@ export default function BlogEditor({ post, onSave, onCancel, isLoading }) {
     setUploadingImage(true);
 
     const placeholderId = `imgload-${Date.now()}`;
+    const afterId = `after-${placeholderId}`;
+
     editorRef.current?.focus();
     restoreOrFallbackToEnd();
+    // Insert placeholder + a tagged <p> right after it to serve as cursor landing spot
     exec(
       'insertHTML',
-      `<div id="${placeholderId}" contenteditable="false" style="background:rgba(100,100,255,0.08);border:2px dashed rgba(100,100,255,0.3);border-radius:12px;padding:20px 16px;text-align:center;margin:10px 0;color:rgba(150,150,255,0.8);font-size:13px;user-select:none;">📤 Enviando imagem...</div><br>`
+      `<div id="${placeholderId}" contenteditable="false" style="background:rgba(100,100,255,0.08);border:2px dashed rgba(100,100,255,0.3);border-radius:12px;padding:20px 16px;text-align:center;margin:10px 0;color:rgba(150,150,255,0.8);font-size:13px;user-select:none;">📤 Enviando imagem...</div><p id="${afterId}"><br></p>`
     );
-    // Clear saved range so a subsequent insert doesn't re-use the now-stale position
     savedRangeRef.current = null;
 
     try {
@@ -89,6 +91,18 @@ export default function BlogEditor({ post, onSave, onCancel, isLoading }) {
       const placeholder = editorRef.current?.querySelector(`#${placeholderId}`);
       if (placeholder) {
         placeholder.outerHTML = `<img src="${url}" style="max-width:100%;border-radius:12px;margin:10px 0;display:block;" />`;
+      }
+      // Move cursor into the paragraph that was placed after the image
+      const afterEl = editorRef.current?.querySelector(`#${afterId}`);
+      if (afterEl) {
+        afterEl.removeAttribute('id');
+        const sel = window.getSelection();
+        const range = document.createRange();
+        range.setStart(afterEl, 0);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+        editorRef.current?.focus();
       }
     } catch {
       const placeholder = editorRef.current?.querySelector(`#${placeholderId}`);

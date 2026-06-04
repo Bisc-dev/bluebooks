@@ -12,7 +12,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Link } from 'react-router-dom';
 import TagsManager from '@/components/admin/TagsManager';
-import ImageUploader from '@/components/profile/ImageUploader';
 
 const genres = [
   'Romance', 'Dark Romance', 'Fantasia', 'Fantasia Sombria',
@@ -26,6 +25,12 @@ const genres = [
   'Mangá', 'Manhwa', 'Quadrinhos', 'HQ', 'Webtoon', 'Light Novel',
   'Horror Cósmico', 'Outros',
 ];
+
+function convertGoogleDriveLink(url) {
+  const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (match) return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w1000`;
+  return url;
+}
 
 export default function Admin() {
   const queryClient = useQueryClient();
@@ -91,7 +96,7 @@ export default function Admin() {
 function BooksManager({ queryClient }) {
   const [showForm, setShowForm] = useState(false);
   const [editingBook, setEditingBook] = useState(null);
-  const [form, setForm] = useState({ title: '', description: '', cover_url: '', genre: 'Dark Romance', pdf_link: '', epub_link: '' });
+  const [form, setForm] = useState({ title: '', description: '', cover_url: '', cover_drive_input: '', genre: 'Dark Romance', pdf_link: '', epub_link: '' });
 
   const { data: books = [] } = useQuery({
     queryKey: ['books'],
@@ -111,6 +116,7 @@ function BooksManager({ queryClient }) {
       title: book.title || '',
       description: book.description || '',
       cover_url: book.cover_url || '',
+      cover_drive_input: '',
       genre: book.genre || 'Dark Romance',
       pdf_link: book.pdf_link || '',
       epub_link: book.epub_link || '',
@@ -120,19 +126,21 @@ function BooksManager({ queryClient }) {
   };
 
   const resetForm = () => {
-    setForm({ title: '', description: '', cover_url: '', genre: 'Dark Romance', pdf_link: '', epub_link: '' });
+    setForm({ title: '', description: '', cover_url: '', cover_drive_input: '', genre: 'Dark Romance', pdf_link: '', epub_link: '' });
     setEditingBook(null);
     setShowForm(false);
   };
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      // eslint-disable-next-line no-unused-vars
+      const { cover_drive_input, ...bookData } = form;
       if (editingBook) {
-        const { error } = await supabase.from('books').update(form).eq('id', editingBook.id);
+        const { error } = await supabase.from('books').update(bookData).eq('id', editingBook.id);
         if (error) throw error;
       } else {
         const { error } = await supabase.from('books').insert({
-          ...form,
+          ...bookData,
           likes: 0,
           views: 0,
           liked_by: [],
@@ -189,9 +197,14 @@ function BooksManager({ queryClient }) {
             {form.cover_url && (
               <img src={form.cover_url} alt="Preview" className="w-32 aspect-[2/3] object-cover rounded-xl" />
             )}
-            <ImageUploader
-              onUpload={url => setForm({ ...form, cover_url: url })}
-              label={form.cover_url ? 'Trocar capa' : 'Enviar capa do livro'}
+            <Input
+              placeholder="Link do Google Drive (ex: https://drive.google.com/file/d/.../view?usp=sharing)"
+              value={form.cover_drive_input ?? ''}
+              onChange={e => {
+                const raw = e.target.value;
+                setForm({ ...form, cover_drive_input: raw, cover_url: convertGoogleDriveLink(raw) });
+              }}
+              className="rounded-xl"
             />
           </div>
 
