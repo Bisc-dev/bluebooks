@@ -26,13 +26,38 @@ const genres = [
   'Horror Cósmico', 'Outros',
 ];
 
+// Converte links conhecidos de forma síncrona (Drive)
+// Para pin.it, retorna um marcador para resolver depois
 function convertCoverLink(url) {
-  if (!url) return { url: '', error: null };
+  if (!url) return { url: '', error: null, needsResolve: false };
+
   const driveMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-  if (driveMatch) return { url: `https://drive.google.com/thumbnail?id=${driveMatch[1]}&sz=w1000`, error: null };
-  if (/^https?:\/\/pin\.it\//i.test(url))
-    return { url: '', error: 'Links "pin.it" do app do Pinterest não funcionam como imagem. Abra o pin no computador e copie o link da imagem (i.pinimg.com).' };
-  return { url, error: null };
+  if (driveMatch) return {
+    url: `https://drive.google.com/thumbnail?id=${driveMatch[1]}&sz=w1000`,
+    error: null,
+    needsResolve: false
+  };
+
+  if (/^https?:\/\/pin\.it\//i.test(url)) return {
+    url: '',
+    error: null,
+    needsResolve: true  // sinaliza para resolver via Edge Function
+  };
+
+  return { url, error: null, needsResolve: false };
+}
+
+// Resolve pin.it via Edge Function do Supabase
+async function resolvePinIt(url) {
+  const { data, error } = await supabase.functions.invoke('resolve-image', {
+    body: { url },
+  });
+
+  if (error || !data?.imagemUrl) {
+    return { url: '', error: 'Não foi possível resolver o link pin.it. Tente copiar o link direto da imagem (i.pinimg.com).' };
+  }
+
+  return { url: data.imagemUrl, error: null };
 }
 
 export default function Admin() {
@@ -202,12 +227,20 @@ function BooksManager({ queryClient }) {
               <img src={form.cover_url} alt="Preview" className="w-32 aspect-[2/3] object-cover rounded-xl" />
             )}
             <Input
-              placeholder="Link do Google Drive ou Pinterest (i.pinimg.com)"
+              placeholder="Link do Google Drive, Pinterest ou pin.it"
               value={form.cover_drive_input ?? ''}
-              onChange={e => {
+              onChange={async e => {
                 const raw = e.target.value;
-                const { url, error } = convertCoverLink(raw);
-                setForm({ ...form, cover_drive_input: raw, cover_url: url, cover_link_error: error });
+                const { url, error, needsResolve } = convertCoverLink(raw);
+
+                if (needsResolve) {
+                  // Mostra estado de carregando enquanto resolve
+                  setForm(f => ({ ...f, cover_drive_input: raw, cover_url: '', cover_link_error: 'Resolvendo link pin.it...' }));
+                  const resolved = await resolvePinIt(raw);
+                  setForm(f => ({ ...f, cover_url: resolved.url, cover_link_error: resolved.error }));
+                } else {
+                  setForm(f => ({ ...f, cover_drive_input: raw, cover_url: url, cover_link_error: error }));
+                }
               }}
               className="rounded-xl"
             />
