@@ -236,7 +236,7 @@ function BooksManager({ queryClient }) {
 
                 if (needsResolve) {
                   // Mostra estado de carregando enquanto resolve
-                  setForm(f => ({ ...f, cover_drive_input: raw, cover_url: '', cover_link_error: 'Resolvendo link pin.it...' }));
+                  setForm(f => ({ ...f, cover_drive_input: raw, cover_url: '', cover_link_error: 'Carregando imagem pin.it...' }));
                   const resolved = await resolvePinIt(raw);
                   setForm(f => ({ ...f, cover_url: resolved.url, cover_link_error: resolved.error }));
                 } else {
@@ -246,7 +246,13 @@ function BooksManager({ queryClient }) {
               className="rounded-xl"
             />
             {form.cover_link_error && (
-              <p className="text-xs text-destructive">{form.cover_link_error}</p>
+              <p className={`text-xs ${
+                form.cover_link_error === 'Carregando imagem pin.it...'
+                  ? 'text-yellow-500'
+                  : 'text-destructive'
+              }`}>
+                {form.cover_link_error}
+              </p>
             )}
           </div>
 
