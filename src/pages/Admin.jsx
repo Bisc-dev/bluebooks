@@ -50,7 +50,8 @@ function convertCoverLink(url) {
 // Resolve pin.it via Edge Function do Supabase
 async function resolvePinIt(url) {
   const { data, error } = await supabase.functions.invoke('resolve-image', {
-    body: { url },
+    body: JSON.stringify({ url }),                          // <-- stringify explícito
+    headers: { 'Content-Type': 'application/json' },       // <-- header explícito
   });
 
   if (error || !data?.imagemUrl) {
